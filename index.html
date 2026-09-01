@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media Player MVP</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <main id="player">
+
+        <!-- PUBLICIDADE -->
+        <section class="slide active" id="advertisement">
+            <div class="content">
+                <span class="label">PUBLICIDADE</span>
+
+                <h1>OFERTA ESPECIAL</h1>
+
+                <p>Seu anúncio pode aparecer aqui.</p>
+
+                <div class="advertisement-box">
+                    ESPAÇO PUBLICITÁRIO
+                </div>
+            </div>
+        </section>
+
+        <!-- CLIMA -->
+        <section class="slide" id="weather">
+            <div class="content">
+
+                <span class="label">CLIMA</span>
+
+                <div class="weather-icon">☀️</div>
+
+                <h1>28°C</h1>
+
+                <h2>Itapetininga - SP</h2>
+
+                <p>Ensolarado</p>
+
+            </div>
+        </section>
+
+        <!-- NOTÍCIAS -->
+        <section class="slide" id="news">
+            <div class="content">
+
+                <span class="label">NOTÍCIAS</span>
+
+                <h1>Principais notícias</h1>
+
+                <article>
+                    <h2>Exemplo de manchete principal</h2>
+                    <p>Este será o espaço utilizado futuramente para notícias atualizadas automaticamente.</p>
+                </article>
+
+                <article>
+                    <h2>Outra notícia importante</h2>
+                    <p>O conteúdo poderá ser alimentado posteriormente por RSS ou APIs.</p>
+                </article>
+
+            </div>
+        </section>
+
+    </main>
+
+    <div id="progress"></div>
+
+    <script src="app.js"></script>
+
+</body>
+</html>
