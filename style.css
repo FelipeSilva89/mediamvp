@@ -16,21 +16,122 @@ body {
     background: #111;
 }
 
+/* =========================
+   TELA INICIAL
+   ========================= */
+
+#start-screen {
+    position: fixed;
+
+    inset: 0;
+
+    z-index: 9999;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    background: #111;
+
+    color: white;
+
+    text-align: center;
+}
+
+.start-content {
+    width: 90%;
+    max-width: 600px;
+}
+
+.start-icon {
+    width: 100px;
+    height: 100px;
+
+    margin: 0 auto 30px;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    border: 3px solid white;
+
+    border-radius: 50%;
+
+    font-size: 40px;
+}
+
+.start-content h1 {
+    font-size: clamp(35px, 7vw, 70px);
+
+    margin-bottom: 15px;
+}
+
+.start-content p {
+    font-size: clamp(20px, 4vw, 32px);
+
+    margin-bottom: 35px;
+}
+
+#start-button {
+    border: none;
+
+    padding: 20px 40px;
+
+    border-radius: 8px;
+
+    background: white;
+
+    color: #111;
+
+    font-size: 20px;
+
+    font-weight: bold;
+
+    cursor: pointer;
+}
+
+#start-button:active {
+    transform: scale(0.97);
+}
+
+.start-content small {
+    display: block;
+
+    margin-top: 25px;
+
+    font-size: 14px;
+
+    opacity: 0.6;
+
+    line-height: 1.5;
+}
+
+
+/* =========================
+   PLAYER
+   ========================= */
+
 #player {
     width: 100%;
     height: 100%;
+
     position: relative;
 }
 
 .slide {
     position: absolute;
+
     inset: 0;
 
     display: flex;
+
     align-items: center;
     justify-content: center;
 
     opacity: 0;
+
     visibility: hidden;
 
     transition: opacity 0.8s ease;
@@ -40,12 +141,15 @@ body {
 
 .slide.active {
     opacity: 1;
+
     visibility: visible;
 }
 
 .content {
     width: 100%;
+
     max-width: 1000px;
+
     text-align: center;
 }
 
@@ -53,6 +157,7 @@ body {
     display: inline-block;
 
     font-size: 18px;
+
     font-weight: bold;
 
     letter-spacing: 3px;
@@ -64,23 +169,30 @@ body {
 
 h1 {
     font-size: clamp(45px, 8vw, 100px);
+
     margin-bottom: 20px;
 }
 
 h2 {
     font-size: clamp(25px, 4vw, 50px);
+
     margin-bottom: 15px;
 }
 
 p {
     font-size: clamp(20px, 3vw, 35px);
+
     line-height: 1.4;
 }
 
-/* PUBLICIDADE */
+
+/* =========================
+   PUBLICIDADE
+   ========================= */
 
 #advertisement {
     background: #202020;
+
     color: white;
 }
 
@@ -96,22 +208,31 @@ p {
     font-size: 30px;
 }
 
-/* CLIMA */
+
+/* =========================
+   CLIMA
+   ========================= */
 
 #weather {
     background: #e9f4ff;
+
     color: #17202a;
 }
 
 .weather-icon {
     font-size: 100px;
+
     margin-bottom: 20px;
 }
 
-/* NOTÍCIAS */
+
+/* =========================
+   NOTÍCIAS
+   ========================= */
 
 #news {
     background: #f5f5f5;
+
     color: #222;
 }
 
@@ -137,7 +258,10 @@ p {
     font-size: 20px;
 }
 
-/* BARRA DE PROGRESSO */
+
+/* =========================
+   BARRA DE PROGRESSO
+   ========================= */
 
 #progress {
     position: fixed;
@@ -152,4 +276,6 @@ p {
     background: white;
 
     transition: width linear;
+
+    z-index: 100;
 }
