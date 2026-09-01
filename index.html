@@ -1,24 +1,73 @@
+```html
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
+
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>Media Player MVP</title>
-    <link rel="stylesheet" href="style.css">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <!-- PWA -->
+    <meta
+        name="mobile-web-app-capable"
+        content="yes"
+    >
+
+    <meta
+        name="apple-mobile-web-app-capable"
+        content="yes"
+    >
+
+    <meta
+        name="apple-mobile-web-app-status-bar-style"
+        content="black-translucent"
+    >
+
+    <meta
+        name="theme-color"
+        content="#111111"
+    >
+
+    <title>Media Player</title>
+
+    <!-- Manifest do aplicativo -->
+    <link
+        rel="manifest"
+        href="manifest.json"
+    >
+
+    <link
+        rel="stylesheet"
+        href="style.css"
+    >
+
 </head>
 
 <body>
 
-    <!-- Tela inicial -->
+    <!-- =========================
+         TELA INICIAL
+         ========================= -->
+
     <div id="start-screen">
+
         <div class="start-content">
-            <div class="start-icon">▶</div>
 
-            <h1>Media Player</h1>
+            <div class="start-icon">
+                ▶
+            </div>
 
-            <p>Toque para iniciar</p>
+            <h1>
+                Media Player
+            </h1>
+
+            <p>
+                Toque para iniciar
+            </p>
 
             <button id="start-button">
                 INICIAR PLAYER
@@ -27,76 +76,179 @@
             <small>
                 O player entrará em tela cheia e manterá a tela ligada.
             </small>
+
         </div>
+
     </div>
 
-    <!-- PLAYER -->
+
+    <!-- =========================
+         PLAYER
+         ========================= -->
+
     <main id="player">
 
+
         <!-- PUBLICIDADE -->
-        <section class="slide active" id="advertisement">
+
+        <section
+            class="slide active"
+            id="advertisement"
+        >
+
             <div class="content">
-                <span class="label">PUBLICIDADE</span>
 
-                <h1>OFERTA ESPECIAL</h1>
+                <span class="label">
+                    PUBLICIDADE
+                </span>
 
-                <p>Seu anúncio pode aparecer aqui.</p>
+                <h1>
+                    OFERTA ESPECIAL
+                </h1>
+
+                <p>
+                    Seu anúncio pode aparecer aqui.
+                </p>
 
                 <div class="advertisement-box">
                     ESPAÇO PUBLICITÁRIO
                 </div>
+
             </div>
+
         </section>
+
 
         <!-- CLIMA -->
-        <section class="slide" id="weather">
+
+        <section
+            class="slide"
+            id="weather"
+        >
+
             <div class="content">
 
-                <span class="label">CLIMA</span>
+                <span class="label">
+                    CLIMA
+                </span>
 
-                <div class="weather-icon">☀️</div>
+                <div class="weather-icon">
+                    ☀️
+                </div>
 
-                <h1>28°C</h1>
+                <h1>
+                    28°C
+                </h1>
 
-                <h2>Itapetininga - SP</h2>
+                <h2>
+                    Itapetininga - SP
+                </h2>
 
-                <p>Ensolarado</p>
+                <p>
+                    Ensolarado
+                </p>
 
             </div>
+
         </section>
 
+
         <!-- NOTÍCIAS -->
-        <section class="slide" id="news">
+
+        <section
+            class="slide"
+            id="news"
+        >
+
             <div class="content">
 
-                <span class="label">NOTÍCIAS</span>
+                <span class="label">
+                    NOTÍCIAS
+                </span>
 
-                <h1>Principais notícias</h1>
+                <h1>
+                    Principais notícias
+                </h1>
 
                 <article>
-                    <h2>Exemplo de manchete principal</h2>
+
+                    <h2>
+                        Exemplo de manchete principal
+                    </h2>
+
                     <p>
                         Este será o espaço utilizado futuramente
                         para notícias atualizadas automaticamente.
                     </p>
+
                 </article>
 
                 <article>
-                    <h2>Outra notícia importante</h2>
+
+                    <h2>
+                        Outra notícia importante
+                    </h2>
+
                     <p>
                         O conteúdo poderá ser alimentado posteriormente
                         por RSS ou APIs.
                     </p>
+
                 </article>
 
             </div>
+
         </section>
 
     </main>
 
+
+    <!-- BARRA DE PROGRESSO -->
+
     <div id="progress"></div>
+
+
+    <!-- JavaScript -->
 
     <script src="app.js"></script>
 
+
+    <!-- Service Worker -->
+
+    <script>
+
+        if ("serviceWorker" in navigator) {
+
+            window.addEventListener(
+                "load",
+                () => {
+
+                    navigator.serviceWorker
+                        .register("./sw.js")
+                        .then(() => {
+
+                            console.log(
+                                "Service Worker registrado."
+                            );
+
+                        })
+                        .catch((error) => {
+
+                            console.warn(
+                                "Erro ao registrar Service Worker:",
+                                error
+                            );
+
+                        });
+
+                }
+            );
+
+        }
+
+    </script>
+
 </body>
+
 </html>
+```

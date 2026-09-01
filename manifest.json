@@ -1,0 +1,22 @@
+```json
+{
+    "name": "Media Player",
+    "short_name": "Media Player",
+
+    "description": "Sistema de reprodução de mídia digital",
+
+    "start_url": "./index.html",
+
+    "scope": "./",
+
+    "display": "standalone",
+
+    "orientation": "landscape",
+
+    "background_color": "#111111",
+
+    "theme_color": "#111111",
+
+    "icons": []
+}
+```
