@@ -1,4 +1,4 @@
-```json
+json
 {
     "name": "Media Player",
     "short_name": "Media Player",
@@ -19,4 +19,3 @@
 
     "icons": []
 }
-```
