@@ -1,4 +1,3 @@
-javascript
 const CACHE_NAME = "media-player-v1";
 
 const FILES_TO_CACHE = [

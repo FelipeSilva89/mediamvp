@@ -1,4 +1,3 @@
-javascript
 const slides = document.querySelectorAll(".slide");
 const progress = document.getElementById("progress");
 
@@ -20,13 +19,9 @@ const SLIDE_DURATION = 10000;
 const NEWS_LIMIT = 5;
 const NEWS_UPDATE_INTERVAL = 3 * 60 * 60 * 1000;
 
-// RSS do Jornal de Itapetininga
-const RSS_URL =
-    "https://www.jornaldeitapetininga.com.br/feed";
-
-// Proxy para permitir acesso ao RSS pelo navegador
-const RSS_PROXY =
-    "https://api.allorigins.win/raw?url=";
+// URL DO WORKER
+const NEWS_API_URL =
+    "https://billowing-thunder-176amediamvp.drigo-felipe.workers.dev/";
 
 
 // =========================
@@ -37,7 +32,8 @@ let news = [];
 
 
 /**
- * Busca notícias no RSS.
+ * Busca notícias através
+ * do Cloudflare Worker.
  */
 async function loadNews() {
 
@@ -45,15 +41,13 @@ async function loadNews() {
 
     try {
 
-        const encodedUrl =
-            encodeURIComponent(RSS_URL);
-
-        const response = await fetch(
-            RSS_PROXY + encodedUrl,
-            {
-                cache: "no-store"
-            }
-        );
+        const response =
+            await fetch(
+                NEWS_API_URL,
+                {
+                    cache: "no-store"
+                }
+            );
 
         if (!response.ok) {
 
@@ -63,73 +57,26 @@ async function loadNews() {
 
         }
 
-        const xmlText =
-            await response.text();
+        const data =
+            await response.json();
 
-        const parser =
-            new DOMParser();
-
-        const xml =
-            parser.parseFromString(
-                xmlText,
-                "application/xml"
-            );
-
-        const parserError =
-            xml.querySelector("parsererror");
-
-        if (parserError) {
+        if (
+            !data.success ||
+            !Array.isArray(data.news)
+        ) {
 
             throw new Error(
-                "RSS inválido."
+                "Resposta inválida da API de notícias."
             );
 
         }
 
-        const items =
-            Array.from(
-                xml.querySelectorAll("item")
-            );
-
         const parsedNews =
-            items
+            data.news
                 .slice(0, NEWS_LIMIT)
-                .map((item) => {
-
-                    const title =
-                        item.querySelector("title")
-                            ?.textContent
-                            ?.trim() || "";
-
-                    const description =
-                        item.querySelector("description")
-                            ?.textContent
-                            ?.trim() || "";
-
-                    const link =
-                        item.querySelector("link")
-                            ?.textContent
-                            ?.trim() || "";
-
-                    const pubDate =
-                        item.querySelector("pubDate")
-                            ?.textContent
-                            ?.trim() || "";
-
-                    return {
-                        title,
-                        description:
-                            cleanDescription(
-                                description
-                            ),
-                        link,
-                        pubDate
-                    };
-
-                })
                 .filter(
                     (item) =>
-                        item.title !== ""
+                        item.title
                 );
 
         if (parsedNews.length === 0) {
@@ -155,8 +102,10 @@ async function loadNews() {
             error
         );
 
-        // Se já temos notícias válidas,
-        // simplesmente mantemos as anteriores.
+        /*
+         * Se já temos notícias válidas,
+         * mantemos as anteriores.
+         */
         if (news.length > 0) {
 
             console.log(
@@ -175,32 +124,29 @@ async function loadNews() {
 
 
 /**
- * Remove HTML do resumo da notícia.
+ * Atualiza as notícias
+ * automaticamente.
  */
-function cleanDescription(text) {
+function startNewsUpdater() {
 
-    const temp =
-        document.createElement("div");
-
-    temp.innerHTML = text;
-
-    return (
-        temp.textContent ||
-        temp.innerText ||
-        ""
-    ).trim();
+    setInterval(
+        loadNews,
+        NEWS_UPDATE_INTERVAL
+    );
 
 }
 
 
-/**
- * Atualiza o conteúdo visual
- * do slide de notícias.
- */
+// =========================
+// RENDERIZAÇÃO DAS NOTÍCIAS
+// =========================
+
 function renderNews() {
 
     const newsContainer =
-        document.querySelector("#news .content");
+        document.querySelector(
+            "#news .content"
+        );
 
     if (!newsContainer) {
         return;
@@ -265,19 +211,25 @@ function renderNews() {
 
         </div>
 
+        <small class="news-source">
+            Fonte: Jornal de Itapetininga
+        </small>
+
     `;
 
 }
 
 
 /**
- * Mensagem exibida caso
- * nenhuma notícia esteja disponível.
+ * Mensagem exibida quando
+ * não existem notícias disponíveis.
  */
 function renderNewsError() {
 
     const newsContainer =
-        document.querySelector("#news .content");
+        document.querySelector(
+            "#news .content"
+        );
 
     if (!newsContainer) {
         return;
@@ -315,16 +267,13 @@ function limitText(
 ) {
 
     if (text.length <= maxLength) {
-
         return text;
-
     }
 
     return (
-        text.substring(
-            0,
-            maxLength
-        ).trim() + "..."
+        text
+            .substring(0, maxLength)
+            .trim() + "..."
     );
 
 }
@@ -332,7 +281,7 @@ function limitText(
 
 /**
  * Evita inserir HTML vindo
- * diretamente do RSS.
+ * da API.
  */
 function escapeHtml(text) {
 
@@ -342,19 +291,6 @@ function escapeHtml(text) {
     div.textContent = text;
 
     return div.innerHTML;
-
-}
-
-
-/**
- * Atualiza notícias periodicamente.
- */
-function startNewsUpdater() {
-
-    setInterval(
-        loadNews,
-        NEWS_UPDATE_INTERVAL
-    );
 
 }
 
@@ -369,7 +305,8 @@ async function enterFullscreen() {
 
         if (!document.fullscreenElement) {
 
-            await document.documentElement.requestFullscreen();
+            await document.documentElement
+                .requestFullscreen();
 
         }
 
@@ -528,9 +465,7 @@ function nextSlide() {
 async function startPlayer() {
 
     if (playerStarted) {
-
         return;
-
     }
 
     playerStarted = true;
@@ -539,24 +474,19 @@ async function startPlayer() {
         "Iniciando Media Player..."
     );
 
-    // Tela cheia
     await enterFullscreen();
 
-    // Mantém tela ligada
     await requestWakeLock();
 
-    // Remove tela inicial
     startScreen.style.display =
         "none";
 
-    // Primeiro slide
     currentSlide = 0;
 
     showSlide(
         currentSlide
     );
 
-    // Playlist
     slideTimer =
         setInterval(
             nextSlide,
@@ -593,10 +523,9 @@ document.addEventListener(
 // Busca notícias imediatamente.
 loadNews();
 
-// Agenda atualização a cada 3 horas.
+// Atualiza a cada 3 horas.
 startNewsUpdater();
 
 console.log(
     "Media Player aguardando início."
 );
-
