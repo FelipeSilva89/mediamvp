@@ -1,43 +1,73 @@
-const slides = document.querySelectorAll(".slide");
-const progress = document.getElementById("progress");
+// ========================================
+// ELEMENTOS
+// ========================================
 
-const startScreen = document.getElementById("start-screen");
-const startButton = document.getElementById("start-button");
+const player =
+    document.getElementById("player");
+
+const progress =
+    document.getElementById("progress");
+
+const startScreen =
+    document.getElementById("start-screen");
+
+const startButton =
+    document.getElementById("start-button");
+
+
+// ========================================
+// ESTADO DO PLAYER
+// ========================================
+
+let slides = [];
 
 let currentSlide = 0;
+
 let playerStarted = false;
+
 let slideTimer = null;
+
 let wakeLock = null;
 
-// =========================
-// CONFIGURAÇÕES
-// =========================
 
-const SLIDE_DURATION = 10000;
+// ========================================
+// CONFIGURAÇÕES
+// ========================================
+
+const SLIDE_DURATION =
+    10000;
 
 // Notícias
 const NEWS_LIMIT = 5;
-const NEWS_UPDATE_INTERVAL = 3 * 60 * 60 * 1000;
 
-// URL DO WORKER
+const NEWS_UPDATE_INTERVAL =
+    3 * 60 * 60 * 1000;
+
+
+// ========================================
+// API DE NOTÍCIAS
+// ========================================
+
 const NEWS_API_URL =
     "https://billowing-thunder-176amediamvp.drigo-felipe.workers.dev/";
 
 
-// =========================
-// NOTÍCIAS
-// =========================
+// ========================================
+// DADOS
+// ========================================
 
 let news = [];
 
 
-/**
- * Busca notícias através
- * do Cloudflare Worker.
- */
+// ========================================
+// BUSCAR NOTÍCIAS
+// ========================================
+
 async function loadNews() {
 
-    console.log("Buscando notícias...");
+    console.log(
+        "Buscando notícias..."
+    );
 
     try {
 
@@ -49,6 +79,7 @@ async function loadNews() {
                 }
             );
 
+
         if (!response.ok) {
 
             throw new Error(
@@ -57,8 +88,10 @@ async function loadNews() {
 
         }
 
+
         const data =
             await response.json();
+
 
         if (
             !data.success ||
@@ -66,20 +99,24 @@ async function loadNews() {
         ) {
 
             throw new Error(
-                "Resposta inválida da API de notícias."
+                "Resposta inválida da API."
             );
 
         }
+
 
         const parsedNews =
             data.news
                 .slice(0, NEWS_LIMIT)
                 .filter(
-                    (item) =>
+                    item =>
                         item.title
                 );
 
-        if (parsedNews.length === 0) {
+
+        if (
+            parsedNews.length === 0
+        ) {
 
             throw new Error(
                 "Nenhuma notícia encontrada."
@@ -87,13 +124,19 @@ async function loadNews() {
 
         }
 
-        news = parsedNews;
+
+        news =
+            parsedNews;
+
 
         console.log(
             `${news.length} notícias carregadas.`
         );
 
-        renderNews();
+
+        // Monta os slides
+        renderPlaylist();
+
 
     } catch (error) {
 
@@ -102,11 +145,12 @@ async function loadNews() {
             error
         );
 
-        /*
-         * Se já temos notícias válidas,
-         * mantemos as anteriores.
-         */
-        if (news.length > 0) {
+
+        // Se já temos notícias,
+        // mantém a playlist atual.
+        if (
+            news.length > 0
+        ) {
 
             console.log(
                 "Mantendo últimas notícias válidas."
@@ -114,7 +158,7 @@ async function loadNews() {
 
         } else {
 
-            renderNewsError();
+            renderPlaylist();
 
         }
 
@@ -123,187 +167,752 @@ async function loadNews() {
 }
 
 
-/**
- * Atualiza as notícias
- * automaticamente.
- */
-function startNewsUpdater() {
+// ========================================
+// MONTAR PLAYLIST
+// ========================================
 
-    setInterval(
-        loadNews,
-        NEWS_UPDATE_INTERVAL
+function renderPlaylist() {
+
+    player.innerHTML = "";
+
+
+    // ====================================
+    // NOTÍCIA 1
+    // ====================================
+
+    if (news[0]) {
+
+        player.appendChild(
+            createNewsSlide(
+                news[0],
+                1
+            )
+        );
+
+    }
+
+
+    // ====================================
+    // NOTÍCIA 2
+    // ====================================
+
+    if (news[1]) {
+
+        player.appendChild(
+            createNewsSlide(
+                news[1],
+                2
+            )
+        );
+
+    }
+
+
+    // ====================================
+    // CLIMA
+    // ====================================
+
+    player.appendChild(
+        createWeatherSlide()
     );
+
+
+    // ====================================
+    // NOTÍCIA 3
+    // ====================================
+
+    if (news[2]) {
+
+        player.appendChild(
+            createNewsSlide(
+                news[2],
+                3
+            )
+        );
+
+    }
+
+
+    // ====================================
+    // NOTÍCIA 4
+    // ====================================
+
+    if (news[3]) {
+
+        player.appendChild(
+            createNewsSlide(
+                news[3],
+                4
+            )
+        );
+
+    }
+
+
+    // ====================================
+    // PUBLICIDADE
+    // ====================================
+
+    player.appendChild(
+        createAdvertisementSlide()
+    );
+
+
+    // ====================================
+    // NOTÍCIA 5
+    // ====================================
+
+    if (news[4]) {
+
+        player.appendChild(
+            createNewsSlide(
+                news[4],
+                5
+            )
+        );
+
+    }
+
+
+    // Atualiza referência dos slides
+    slides =
+        Array.from(
+            player.querySelectorAll(
+                ".slide"
+            )
+        );
+
+
+    console.log(
+        `Playlist criada com ${slides.length} slides.`
+    );
+
+
+    // Se o player já estiver rodando,
+    // garante que o índice continua válido.
+    if (
+        currentSlide >= slides.length
+    ) {
+
+        currentSlide = 0;
+
+    }
+
+
+    if (
+        playerStarted &&
+        slides.length > 0
+    ) {
+
+        showSlide(
+            currentSlide
+        );
+
+    }
 
 }
 
 
-// =========================
-// RENDERIZAÇÃO DAS NOTÍCIAS
-// =========================
+// ========================================
+// CRIAR SLIDE DE NOTÍCIA
+// ========================================
 
-function renderNews() {
+function createNewsSlide(
+    item,
+    number
+) {
 
-    const newsContainer =
-        document.querySelector(
-            "#news .content"
+    const slide =
+        document.createElement(
+            "section"
         );
 
-    if (!newsContainer) {
-        return;
-    }
+    slide.className =
+        "slide news-slide";
 
-    if (news.length === 0) {
 
-        renderNewsError();
+    const date =
+        formatNewsDate(
+            item.pubDate
+        );
 
-        return;
 
-    }
+    const description =
+        item.description
+            ? cleanDescription(
+                item.description,
+                item.title
+            )
+            : "Resumo não disponível.";
 
-    newsContainer.innerHTML = `
 
-        <span class="label">
-            NOTÍCIAS
-        </span>
+    const image =
+        item.image
+            ? `${NEWS_API_URL}/image?url=${encodeURIComponent(item.image)}`
+            : null;
 
-        <h1>
-            Itapetininga
-        </h1>
 
-        <div id="news-list">
+    slide.innerHTML = `
 
-            ${news
-                .map(
-                    (item, index) => `
+        <div class="news-wrapper">
 
-                    <article class="news-item">
+            <div class="news-header">
 
-                        <span class="news-number">
-                            ${index + 1}
+                <span class="label">
+                    NOTÍCIAS
+                </span>
+
+                <span class="news-counter">
+                    ${number} / ${NEWS_LIMIT}
+                </span>
+
+            </div>
+
+
+            <div class="news-layout">
+
+
+                <!-- IMAGEM -->
+
+                <div class="news-image">
+
+                    ${
+                        image
+                            ? `
+                                <img
+                                    src="${escapeHtml(image)}"
+                                    alt=""
+                                >
+                              `
+                            : `
+                                <div class="image-placeholder">
+
+                                    <div class="placeholder-icon">
+                                        🖼
+                                    </div>
+
+                                    <strong>
+                                        IMAGEM NÃO DISPONÍVEL
+                                    </strong>
+
+                                </div>
+                              `
+                    }
+
+                </div>
+
+
+                <!-- TEXTO -->
+
+                <div class="news-info">
+
+                    <h1>
+                        ${escapeHtml(
+                            item.title
+                        )}
+                    </h1>
+
+
+                    <p class="news-description">
+
+                        ${escapeHtml(
+                            description
+                        )}
+
+                    </p>
+
+
+                    <div class="news-meta">
+
+                        <span>
+                            ${date}
                         </span>
 
-                        <h2>
-                            ${escapeHtml(
-                                item.title
-                            )}
-                        </h2>
+                        <span>
+                            Fonte:
+                            G1 Itapetininga e Região
+                        </span>
 
-                        ${
-                            item.description
-                                ? `
-                                <p>
-                                    ${escapeHtml(
-                                        limitText(
-                                            item.description,
-                                            180
-                                        )
-                                    )}
-                                </p>
-                                `
-                                : ""
-                        }
+                    </div>
 
-                    </article>
+                </div>
 
-                `
-                )
-                .join("")}
+            </div>
 
         </div>
 
-        <small class="news-source">
-            Fonte: Jornal de Itapetininga
-        </small>
-
     `;
 
-}
 
+    // ====================================
+    // FALLBACK DA IMAGEM
+    // ====================================
 
-/**
- * Mensagem exibida quando
- * não existem notícias disponíveis.
- */
-function renderNewsError() {
-
-    const newsContainer =
-        document.querySelector(
-            "#news .content"
+    const imageElement =
+        slide.querySelector(
+            ".news-image img"
         );
 
-    if (!newsContainer) {
-        return;
+
+    if (imageElement) {
+
+        imageElement.addEventListener(
+            "error",
+            () => {
+
+                const container =
+                    imageElement.parentElement;
+
+
+                container.innerHTML = `
+
+                    <div class="image-placeholder">
+
+                        <div class="placeholder-icon">
+                            🖼
+                        </div>
+
+                        <strong>
+                            IMAGEM NÃO DISPONÍVEL
+                        </strong>
+
+                    </div>
+
+                `;
+
+            }
+        );
+
     }
 
-    newsContainer.innerHTML = `
 
-        <span class="label">
-            NOTÍCIAS
-        </span>
-
-        <h1>
-            Notícias
-        </h1>
-
-        <p>
-            Não foi possível atualizar as notícias.
-        </p>
-
-        <p>
-            Tentaremos novamente automaticamente.
-        </p>
-
-    `;
+    return slide;
 
 }
 
 
-/**
- * Limita o tamanho do texto.
- */
+// ========================================
+// SLIDE DE CLIMA
+// ========================================
+
+// ========================================
+// SLIDE DE CLIMA
+// ========================================
+
+function createWeatherSlide() {
+
+    const slide =
+        document.createElement(
+            "section"
+        );
+
+
+    slide.className =
+        "slide weather-slide";
+
+
+    slide.innerHTML = `
+
+        <div class="weather-container">
+
+            <span class="label">
+                CLIMA
+            </span>
+
+
+            <div class="weather-cities">
+
+
+                <!-- =================================
+                     ITAPETININGA
+                ================================== -->
+
+                <div class="weather-city">
+
+                    <div class="weather-icon">
+                        ☀️
+                    </div>
+
+                    <h1>
+                        22°C
+                    </h1>
+
+                    <h2>
+                        Itapetininga - SP
+                    </h2>
+
+                    <p>
+                        Ensolarado
+                    </p>
+
+                </div>
+
+
+                <!-- =================================
+                     SÃO PAULO
+                ================================== -->
+
+                <div class="weather-city">
+
+                    <div class="weather-icon">
+                        ⛅
+                    </div>
+
+                    <h1>
+                        20°C
+                    </h1>
+
+                    <h2>
+                        São Paulo - SP
+                    </h2>
+
+                    <p>
+                        Parcialmente Nublado
+                    </p>
+
+                </div>
+
+
+            </div>
+
+        </div>
+
+    `;
+
+
+    return slide;
+
+}
+
+
+// ========================================
+// SLIDE DE PUBLICIDADE
+// ========================================
+
+function createAdvertisementSlide() {
+
+    const slide =
+        document.createElement(
+            "section"
+        );
+
+    slide.className =
+        "slide advertisement-slide";
+
+
+    slide.innerHTML = `
+
+        <div class="advertisement-content">
+
+            <span class="label">
+                PUBLICIDADE
+            </span>
+
+            <h1>
+                OFERTA ESPECIAL
+            </h1>
+
+            <p>
+                Seu anúncio pode aparecer aqui.
+            </p>
+
+            <div class="advertisement-box">
+                ESPAÇO PUBLICITÁRIO
+            </div>
+
+        </div>
+
+    `;
+
+
+    return slide;
+
+}
+
+
+// ========================================
+// FORMATAR DATA
+// ========================================
+
+function formatNewsDate(
+    pubDate
+) {
+
+    if (!pubDate) {
+
+        return "";
+
+    }
+
+
+    const date =
+        new Date(pubDate);
+
+
+    if (
+        Number.isNaN(
+            date.getTime()
+        )
+    ) {
+
+        return "";
+
+    }
+
+
+    return new Intl.DateTimeFormat(
+        "pt-BR",
+        {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric"
+        }
+    ).format(date);
+
+}
+
+// ========================================
+// LIMPAR E RESUMIR DESCRIÇÃO DA NOTÍCIA
+// ========================================
+
+function cleanDescription(
+    text,
+    title = ""
+) {
+
+    if (!text) {
+
+        return "";
+
+    }
+
+
+    // Remove HTML
+    let value =
+        text
+            .replace(
+                /<[^>]*>/g,
+                " "
+            )
+            .replace(
+                /\s+/g,
+                " "
+            )
+            .trim();
+
+
+    // Remove conteúdos extras
+    // normalmente encontrados no RSS do G1.
+    const stopMarkers = [
+        "📲 Participe do canal",
+        "Initial plugin text",
+        "LEIA TAMBÉM:",
+        "Veja mais informações",
+        "Veja mais notícias",
+        "VÍDEOS: assista às reportagens"
+    ];
+
+
+    for (
+        const marker of stopMarkers
+    ) {
+
+        const index =
+            value.indexOf(marker);
+
+
+        if (
+            index !== -1
+        ) {
+
+            value =
+                value
+                    .substring(
+                        0,
+                        index
+                    )
+                    .trim();
+
+        }
+
+    }
+
+
+    // Evita repetir o título
+    // caso o RSS comece a descrição com ele.
+    if (title) {
+
+        const normalizedTitle =
+            title
+                .trim()
+                .toLowerCase();
+
+
+        const normalizedValue =
+            value.toLowerCase();
+
+
+        if (
+            normalizedValue.startsWith(
+                normalizedTitle
+            )
+        ) {
+
+            value =
+                value
+                    .substring(
+                        title.length
+                    )
+                    .trim();
+
+        }
+
+    }
+
+
+    // Divide o texto em frases.
+    const sentences =
+        value
+            .match(
+                /[^.!?]+[.!?]+/g
+            )
+            ?.map(
+                sentence =>
+                    sentence.trim()
+            )
+            .filter(
+                Boolean
+            ) || [];
+
+
+    // Mantém no máximo duas frases.
+    let summary =
+        sentences
+            .slice(
+                0,
+                2
+            )
+            .join(" ");
+
+
+    // Fallback caso o texto
+    // não tenha pontuação reconhecível.
+    if (!summary) {
+
+        summary =
+            value;
+
+    }
+
+
+    // Limite adicional de segurança.
+    const MAX_LENGTH = 220;
+
+
+    if (
+        summary.length >
+        MAX_LENGTH
+    ) {
+
+        summary =
+            summary.substring(
+                0,
+                MAX_LENGTH
+            );
+
+
+        const lastSpace =
+            summary.lastIndexOf(
+                " "
+            );
+
+
+        if (
+            lastSpace > 150
+        ) {
+
+            summary =
+                summary.substring(
+                    0,
+                    lastSpace
+                );
+
+        }
+
+
+        summary += "...";
+
+    }
+
+
+    return summary;
+
+}
+
+// ========================================
+// LIMITAR TEXTO
+// ========================================
+
 function limitText(
     text,
     maxLength
 ) {
 
-    if (text.length <= maxLength) {
+    if (
+        text.length <= maxLength
+    ) {
+
         return text;
+
     }
+
 
     return (
         text
-            .substring(0, maxLength)
-            .trim() + "..."
+            .substring(
+                0,
+                maxLength
+            )
+            .trim() +
+        "..."
     );
 
 }
 
 
-/**
- * Evita inserir HTML vindo
- * da API.
- */
-function escapeHtml(text) {
+// ========================================
+// ESCAPAR HTML
+// ========================================
+
+function escapeHtml(
+    text
+) {
 
     const div =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
 
-    div.textContent = text;
+    div.textContent =
+        text || "";
+
 
     return div.innerHTML;
 
 }
 
 
-// =========================
+// ========================================
 // FULLSCREEN
-// =========================
+// ========================================
 
 async function enterFullscreen() {
 
     try {
 
-        if (!document.fullscreenElement) {
+        if (
+            !document.fullscreenElement
+        ) {
 
             await document.documentElement
                 .requestFullscreen();
@@ -322,13 +931,15 @@ async function enterFullscreen() {
 }
 
 
-// =========================
+// ========================================
 // WAKE LOCK
-// =========================
+// ========================================
 
 async function requestWakeLock() {
 
-    if (!("wakeLock" in navigator)) {
+    if (
+        !("wakeLock" in navigator)
+    ) {
 
         console.warn(
             "Wake Lock não é suportado neste navegador."
@@ -338,6 +949,7 @@ async function requestWakeLock() {
 
     }
 
+
     try {
 
         wakeLock =
@@ -345,9 +957,11 @@ async function requestWakeLock() {
                 "screen"
             );
 
+
         console.log(
             "Wake Lock ativado."
         );
+
 
         wakeLock.addEventListener(
             "release",
@@ -359,6 +973,7 @@ async function requestWakeLock() {
 
             }
         );
+
 
     } catch (error) {
 
@@ -372,15 +987,16 @@ async function requestWakeLock() {
 }
 
 
-// =========================
+// ========================================
 // RECUPERAR WAKE LOCK
-// =========================
+// ========================================
 
 async function restoreWakeLock() {
 
     if (
         playerStarted &&
-        document.visibilityState === "visible"
+        document.visibilityState ===
+            "visible"
     ) {
 
         await requestWakeLock();
@@ -390,11 +1006,22 @@ async function restoreWakeLock() {
 }
 
 
-// =========================
+// ========================================
 // MOSTRAR SLIDE
-// =========================
+// ========================================
 
-function showSlide(index) {
+function showSlide(
+    index
+) {
+
+    if (
+        slides.length === 0
+    ) {
+
+        return;
+
+    }
+
 
     slides.forEach(
         (slide, i) => {
@@ -407,11 +1034,13 @@ function showSlide(index) {
         }
     );
 
+
     progress.style.transition =
         "none";
 
     progress.style.width =
         "0%";
+
 
     requestAnimationFrame(
         () => {
@@ -434,13 +1063,23 @@ function showSlide(index) {
 }
 
 
-// =========================
+// ========================================
 // PRÓXIMO SLIDE
-// =========================
+// ========================================
 
 function nextSlide() {
 
+    if (
+        slides.length === 0
+    ) {
+
+        return;
+
+    }
+
+
     currentSlide++;
+
 
     if (
         currentSlide >=
@@ -451,6 +1090,7 @@ function nextSlide() {
 
     }
 
+
     showSlide(
         currentSlide
     );
@@ -458,34 +1098,46 @@ function nextSlide() {
 }
 
 
-// =========================
+// ========================================
 // INICIAR PLAYER
-// =========================
+// ========================================
 
 async function startPlayer() {
 
-    if (playerStarted) {
+    if (
+        playerStarted
+    ) {
+
         return;
+
     }
 
+
     playerStarted = true;
+
 
     console.log(
         "Iniciando Media Player..."
     );
 
+
     await enterFullscreen();
 
+
     await requestWakeLock();
+
 
     startScreen.style.display =
         "none";
 
+
     currentSlide = 0;
+
 
     showSlide(
         currentSlide
     );
+
 
     slideTimer =
         setInterval(
@@ -496,9 +1148,9 @@ async function startPlayer() {
 }
 
 
-// =========================
+// ========================================
 // BOTÃO INICIAR
-// =========================
+// ========================================
 
 startButton.addEventListener(
     "click",
@@ -506,9 +1158,9 @@ startButton.addEventListener(
 );
 
 
-// =========================
+// ========================================
 // VISIBILIDADE
-// =========================
+// ========================================
 
 document.addEventListener(
     "visibilitychange",
@@ -516,15 +1168,28 @@ document.addEventListener(
 );
 
 
-// =========================
-// INICIALIZAÇÃO
-// =========================
+// ========================================
+// ATUALIZAÇÃO DE NOTÍCIAS
+// ========================================
 
-// Busca notícias imediatamente.
+function startNewsUpdater() {
+
+    setInterval(
+        loadNews,
+        NEWS_UPDATE_INTERVAL
+    );
+
+}
+
+
+// ========================================
+// INICIALIZAÇÃO
+// ========================================
+
 loadNews();
 
-// Atualiza a cada 3 horas.
 startNewsUpdater();
+
 
 console.log(
     "Media Player aguardando início."

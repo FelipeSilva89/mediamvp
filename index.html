@@ -1,4 +1,3 @@
-html
 <!DOCTYPE html>
 <html lang="pt-BR">
 
@@ -11,7 +10,6 @@ html
         content="width=device-width, initial-scale=1.0"
     >
 
-    <!-- PWA -->
     <meta
         name="mobile-web-app-capable"
         content="yes"
@@ -32,9 +30,8 @@ html
         content="#111111"
     >
 
-    <title>MVP Player</title>
+    <title>Media Player</title>
 
-    <!-- Manifest do aplicativo -->
     <link
         rel="manifest"
         href="manifest.json"
@@ -49,6 +46,7 @@ html
 
 <body>
 
+
     <!-- =========================
          TELA INICIAL
          ========================= -->
@@ -58,15 +56,15 @@ html
         <div class="start-content">
 
             <div class="start-icon">
-                ▶▶
+                ▶
             </div>
 
             <h1>
-                MVP PLAYER
+                Media Player
             </h1>
 
             <p>
-                Toque no botão para iniciar
+                Toque para iniciar
             </p>
 
             <button id="start-button">
@@ -74,7 +72,8 @@ html
             </button>
 
             <small>
-                O player entrará em tela cheia e manterá a tela ligada.
+                O player entrará em tela cheia
+                e manterá a tela ligada.
             </small>
 
         </div>
@@ -88,156 +87,25 @@ html
 
     <main id="player">
 
-
-        <!-- PUBLICIDADE -->
-
-        <section
-            class="slide active"
-            id="advertisement"
-        >
-
-            <div class="content">
-
-                <span class="label">
-                    PUBLICIDADE
-                </span>
-
-                <h1>
-                    OFERTA ESPECIAL
-                </h1>
-
-                <p>
-                    Seu anúncio pode aparecer aqui.
-                </p>
-
-                <div class="advertisement-box">
-                    ESPAÇO PUBLICITÁRIO
-                </div>
-
-            </div>
-
-        </section>
-
-
-        <!-- CLIMA -->
-
-        <section
-            class="slide"
-            id="weather"
-        >
-
-            <div class="content">
-
-                <span class="label">
-                    CLIMA
-                </span>
-
-                <div class="weather-icon">
-                    ☀️
-                </div>
-
-                <h1>
-                    28°C
-                </h1>
-
-                <h2>
-                    Itapetininga - SP
-                </h2>
-
-                <p>
-                    Ensolarado
-                </p>
-
-            </div>
-
-            <div class="content">
-
-                <span class="label">
-                    CLIMA
-                </span>
-
-                <div class="weather-icon">
-                    ⛅
-                </div>
-
-                <h1>
-                    25°C
-                </h1>
-
-                <h2>
-                    São Paulo - SP
-                </h2>
-
-                <p>
-                   Parcialmente Nublado
-                </p>
-
-            </div>
-
-        </section>
-
-
-        <!-- NOTÍCIAS -->
-
-        <section
-            class="slide"
-            id="news"
-        >
-
-            <div class="content">
-
-                <span class="label">
-                    NOTÍCIAS
-                </span>
-
-                <h1>
-                    Principais notícias
-                </h1>
-
-                <article>
-
-                    <h2>
-                        Exemplo de manchete principal
-                    </h2>
-
-                    <p>
-                        Este será o espaço utilizado futuramente
-                        para notícias atualizadas automaticamente.
-                    </p>
-
-                </article>
-
-                <article>
-
-                    <h2>
-                        Outra notícia importante
-                    </h2>
-
-                    <p>
-                        O conteúdo poderá ser alimentado posteriormente
-                        por RSS ou APIs.
-                    </p>
-
-                </article>
-
-            </div>
-
-        </section>
+        <!-- Os slides serão criados
+             automaticamente pelo app.js -->
 
     </main>
 
 
-    <!-- BARRA DE PROGRESSO -->
+    <!-- =========================
+         BARRA DE PROGRESSO
+         ========================= -->
 
     <div id="progress"></div>
 
 
-    <!-- JavaScript -->
-
     <script src="app.js"></script>
 
 
-    <!-- Service Worker -->
+    <!-- =========================
+         SERVICE WORKER
+         ========================= -->
 
     <script>
 
@@ -275,4 +143,3 @@ html
 </body>
 
 </html>
-

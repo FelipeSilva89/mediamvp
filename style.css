@@ -1,26 +1,43 @@
+/* ========================================
+   RESET
+   ======================================== */
+
 * {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
 }
 
+
 html,
 body {
+
     width: 100%;
     height: 100%;
+
     overflow: hidden;
-    font-family: Arial, sans-serif;
+
+    font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+
 }
+
 
 body {
+
     background: #111;
+
 }
 
-/* =========================
+
+/* ========================================
    TELA INICIAL
-   ========================= */
+   ======================================== */
 
 #start-screen {
+
     position: fixed;
 
     inset: 0;
@@ -30,6 +47,7 @@ body {
     display: flex;
 
     align-items: center;
+
     justify-content: center;
 
     background: #111;
@@ -37,47 +55,78 @@ body {
     color: white;
 
     text-align: center;
+
 }
+
 
 .start-content {
+
     width: 90%;
+
     max-width: 600px;
+
 }
 
+
 .start-icon {
+
     width: 100px;
+
     height: 100px;
 
-    margin: 0 auto 30px;
+    margin:
+        0 auto 30px;
 
     display: flex;
 
     align-items: center;
+
     justify-content: center;
 
-    border: 3px solid white;
+    border:
+        3px solid white;
 
     border-radius: 50%;
 
     font-size: 40px;
+
 }
+
 
 .start-content h1 {
-    font-size: clamp(35px, 7vw, 70px);
+
+    font-size:
+        clamp(
+            35px,
+            7vw,
+            70px
+        );
 
     margin-bottom: 15px;
+
 }
+
 
 .start-content p {
-    font-size: clamp(20px, 4vw, 32px);
+
+    font-size:
+        clamp(
+            20px,
+            4vw,
+            32px
+        );
 
     margin-bottom: 35px;
+
 }
 
+
 #start-button {
+
     border: none;
 
-    padding: 20px 40px;
+    padding:
+        20px 40px;
 
     border-radius: 8px;
 
@@ -90,13 +139,20 @@ body {
     font-weight: bold;
 
     cursor: pointer;
+
 }
+
 
 #start-button:active {
-    transform: scale(0.97);
+
+    transform:
+        scale(0.97);
+
 }
 
+
 .start-content small {
+
     display: block;
 
     margin-top: 25px;
@@ -106,21 +162,31 @@ body {
     opacity: 0.6;
 
     line-height: 1.5;
+
 }
 
 
-/* =========================
+/* ========================================
    PLAYER
-   ========================= */
+   ======================================== */
 
 #player {
+
     width: 100%;
+
     height: 100%;
 
     position: relative;
+
 }
 
+
+/* ========================================
+   SLIDES
+   ======================================== */
+
 .slide {
+
     position: absolute;
 
     inset: 0;
@@ -128,188 +194,38 @@ body {
     display: flex;
 
     align-items: center;
+
     justify-content: center;
 
     opacity: 0;
 
     visibility: hidden;
 
-    transition: opacity 0.8s ease;
+    transition:
+        opacity 0.8s ease;
 
-    padding: 40px;
 }
 
+
 .slide.active {
+
     opacity: 1;
 
     visibility: visible;
-}
 
-.content {
-    width: 100%;
-
-    max-width: 1000px;
-
-    text-align: center;
-}
-
-.label {
-    display: inline-block;
-
-    font-size: 18px;
-
-    font-weight: bold;
-
-    letter-spacing: 3px;
-
-    margin-bottom: 30px;
-
-    opacity: 0.7;
-}
-
-h1 {
-    font-size: clamp(45px, 8vw, 100px);
-
-    margin-bottom: 20px;
-}
-
-h2 {
-    font-size: clamp(25px, 4vw, 50px);
-
-    margin-bottom: 15px;
-}
-
-p {
-    font-size: clamp(20px, 3vw, 35px);
-
-    line-height: 1.4;
 }
 
 
-/* =========================
-   PUBLICIDADE
-   ========================= */
-
-#advertisement {
-    background: #202020;
-
-    color: white;
-}
-
-.advertisement-box {
-    margin: 40px auto 0;
-
-    max-width: 700px;
-
-    padding: 60px 20px;
-
-    border: 3px dashed #777;
-
-    font-size: 30px;
-}
-
-
-/* =========================
-   CLIMA
-   ========================= */
-
-#weather {
-    background: #e9f4ff;
-
-    color: #17202a;
-}
-
-.weather-icon {
-    font-size: 100px;
-
-    margin-bottom: 20px;
-}
-
-
-
-/* =========================
-   NOTÍCIAS DINÂMICAS
-   ========================= */
-
-#news .content {
-    max-width: 1100px;
-}
-
-#news-list {
-    width: 100%;
-    margin-top: 30px;
-}
-
-.news-item {
-    position: relative;
-
-    margin: 15px auto;
-
-    padding: 18px 25px 18px 70px;
-
-    max-width: 950px;
-
-    background: white;
-
-    border-radius: 10px;
-
-    text-align: left;
-
-    box-shadow:
-        0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-.news-item h2 {
-    font-size: clamp(20px, 2.5vw, 32px);
-
-    margin-bottom: 8px;
-
-    line-height: 1.2;
-}
-
-.news-item p {
-    font-size: clamp(16px, 1.8vw, 22px);
-
-    line-height: 1.4;
-
-    color: #555;
-}
-
-.news-number {
-    position: absolute;
-
-    left: 20px;
-    top: 20px;
-
-    width: 34px;
-    height: 34px;
-
-    display: flex;
-
-    align-items: center;
-    justify-content: center;
-
-    border-radius: 50%;
-
-    background: #222;
-
-    color: white;
-
-    font-size: 16px;
-
-    font-weight: bold;
-}
-
-
-
-/* =========================
-   BARRA DE PROGRESSO
-   ========================= */
+/* ========================================
+   PROGRESSO
+   ======================================== */
 
 #progress {
+
     position: fixed;
 
     bottom: 0;
+
     left: 0;
 
     height: 6px;
@@ -318,7 +234,538 @@ p {
 
     background: white;
 
-    transition: width linear;
+    transition:
+        width linear;
 
     z-index: 100;
+
+}
+
+
+/* ========================================
+   LABEL
+   ======================================== */
+
+.label {
+
+    display: inline-block;
+
+    font-size: 18px;
+
+    font-weight: bold;
+
+    letter-spacing: 4px;
+
+    opacity: 0.6;
+
+}
+
+
+/* ========================================
+   NOTÍCIAS
+   ======================================== */
+
+.news-slide {
+
+    background:
+        #f3f3f3;
+
+    color:
+        #171717;
+
+    padding:
+        50px;
+
+}
+
+
+.news-wrapper {
+
+    width: 100%;
+
+    max-width: 1400px;
+
+    height: 100%;
+
+    max-height: 850px;
+
+    display: flex;
+
+    flex-direction: column;
+
+    justify-content: center;
+
+}
+
+
+/* ========================================
+   CABEÇALHO DA NOTÍCIA
+   ======================================== */
+
+.news-header {
+
+    width: 100%;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    margin-bottom: 35px;
+
+}
+
+
+.news-counter {
+
+    font-size: 18px;
+
+    font-weight: bold;
+
+    opacity: 0.45;
+
+}
+
+
+/* ========================================
+   LAYOUT
+   ======================================== */
+
+.news-layout {
+
+    width: 100%;
+
+    display: grid;
+
+    grid-template-columns:
+        46% 54%;
+
+    gap: 55px;
+
+    align-items: center;
+
+}
+
+
+/* ========================================
+   IMAGEM
+   ======================================== */
+
+.news-image {
+
+    width: 100%;
+
+    height: 500px;
+
+    overflow: hidden;
+
+    border-radius: 18px;
+
+    background:
+        #dcdcdc;
+
+}
+
+
+.news-image img {
+
+    width: 100%;
+
+    height: 100%;
+
+    display: block;
+
+    object-fit: cover;
+
+}
+
+
+/* ========================================
+   FALLBACK IMAGEM
+   ======================================== */
+
+.image-placeholder {
+
+    width: 100%;
+
+    height: 100%;
+
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: center;
+
+    justify-content: center;
+
+    gap: 20px;
+
+    color:
+        #777;
+
+    text-align: center;
+
+}
+
+
+.placeholder-icon {
+
+    font-size: 70px;
+
+    opacity: 0.4;
+
+}
+
+
+.image-placeholder strong {
+
+    font-size: 18px;
+
+    letter-spacing: 2px;
+
+    opacity: 0.7;
+
+}
+
+
+/* ========================================
+   INFORMAÇÕES
+   ======================================== */
+
+.news-info {
+
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: flex-start;
+
+}
+
+
+.news-info h1 {
+
+    font-size:
+        clamp(
+            38px,
+            4vw,
+            68px
+        );
+
+    line-height: 1.08;
+
+    margin:
+        20px 0 25px;
+
+}
+
+
+.news-description {
+
+    font-size:
+        clamp(
+            22px,
+            2.2vw,
+            32px
+        );
+
+    line-height: 1.35;
+
+    color:
+        #555;
+
+    max-width: 700px;
+
+    display: -webkit-box;
+
+    -webkit-box-orient: vertical;
+
+    -webkit-line-clamp: 2;
+
+    overflow: hidden;
+
+}
+
+
+.news-meta {
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 8px;
+
+    margin-top: 35px;
+
+    font-size: 17px;
+
+    color:
+        #777;
+
+}
+
+
+
+/* ========================================
+   CLIMA
+   ======================================== */
+
+.weather-slide {
+
+    background:
+        #e9f4ff;
+
+    color:
+        #17202a;
+
+}
+
+
+.weather-container {
+
+    width: 100%;
+
+    max-width: 1150px;
+
+    height: 100%;
+
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: center;
+
+    justify-content: center;
+
+    padding:
+        50px 60px;
+
+}
+
+
+.weather-container > .label {
+
+    margin-bottom: 45px;
+
+}
+
+
+.weather-cities {
+
+    width: 100%;
+
+    display: grid;
+
+    grid-template-columns:
+        1fr 1fr;
+
+    gap: 80px;
+
+    align-items: center;
+
+}
+
+
+.weather-city {
+
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: center;
+
+    justify-content: center;
+
+    text-align: center;
+
+}
+
+
+.weather-icon {
+
+    font-size: 82px;
+
+    line-height: 1;
+
+    margin-bottom: 30px;
+
+}
+
+
+.weather-city h1 {
+
+    margin:
+        0 0 22px;
+
+    font-size:
+        clamp(
+            70px,
+            9vw,
+            110px
+        );
+
+    line-height: 1;
+
+    font-weight: 700;
+
+}
+
+
+.weather-city h2 {
+
+    margin:
+        0 0 16px;
+
+    font-size:
+        clamp(
+            28px,
+            3.2vw,
+            42px
+        );
+
+    line-height: 1.15;
+
+    font-weight: 700;
+
+}
+
+
+.weather-city p {
+
+    margin: 0;
+
+    font-size:
+        clamp(
+            22px,
+            2.5vw,
+            30px
+        );
+
+    line-height: 1.2;
+
+}
+
+
+/* ========================================
+   PUBLICIDADE
+   ======================================== */
+
+.advertisement-slide {
+
+    background:
+        #202020;
+
+    color:
+        white;
+
+    text-align: center;
+
+}
+
+
+.advertisement-content {
+
+    width: 90%;
+
+    max-width: 1100px;
+
+}
+
+
+.advertisement-content h1 {
+
+    font-size:
+        clamp(
+            50px,
+            8vw,
+            110px
+        );
+
+    margin:
+        30px 0 20px;
+
+}
+
+
+.advertisement-content p {
+
+    font-size:
+        clamp(
+            22px,
+            3vw,
+            35px
+        );
+
+}
+
+
+.advertisement-box {
+
+    margin:
+        50px auto 0;
+
+    max-width: 800px;
+
+    padding:
+        70px 30px;
+
+    border:
+        3px dashed #777;
+
+    border-radius: 15px;
+
+    font-size: 30px;
+
+    color:
+        #aaa;
+
+}
+
+
+/* ========================================
+   RESPONSIVIDADE
+   ======================================== */
+
+@media (
+    max-width: 800px
+) {
+
+    .news-slide {
+
+        padding: 25px;
+
+    }
+
+
+    .news-layout {
+
+        grid-template-columns:
+            1fr;
+
+        gap: 25px;
+
+    }
+
+
+    .news-image {
+
+        height: 280px;
+
+    }
+
+
+    .news-info h1 {
+
+        font-size: 32px;
+
+    }
+
+
+    .news-description {
+
+        font-size: 20px;
+
+    }
+
 }
