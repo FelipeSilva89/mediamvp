@@ -49,7 +49,7 @@ const NEWS_UPDATE_INTERVAL =
 // ========================================
 
 const NEWS_API_URL =
-    "https://billowing-thunder-176amediamvp.drigo-felipe.workers.dev/";
+    "https://billowing-thunder-176amediamvp.drigo-felipe.workers.dev";
 
 
 // ========================================
