@@ -15,6 +15,8 @@ const startButton =
     document.getElementById("start-button");
 
 
+
+
 // ========================================
 // ESTADO DO PLAYER
 // ========================================
@@ -42,6 +44,12 @@ const NEWS_LIMIT = 5;
 
 const NEWS_UPDATE_INTERVAL =
     3 * 60 * 60 * 1000;
+
+const ADVERTISEMENTS = [
+    "assets/ads/midia-indoor-Lucas-Franca(slide).png"
+];
+
+const ADVERTISEMENT_DURATION = 7000;
 
 
 // ========================================
@@ -575,7 +583,20 @@ function renderPlaylist() {
         );
 
     }
+    // ====================================
+    // PUBLICIDADE — ANTES DO CLIMA
+    // ====================================
 
+    if (ADVERTISEMENTS.length > 0) {
+
+        player.appendChild(
+            createAdvertisementSlide(
+                ADVERTISEMENTS[0],
+                1
+        )
+        );
+
+    }
 
     // ====================================
     // CLIMA
@@ -617,14 +638,30 @@ function renderPlaylist() {
 
     }
 
+    // ====================================
+    // PUBLICIDADE — APÓS NOTÍCIAS
+    // ====================================
+
+    ADVERTISEMENTS
+        .slice(1)
+        .forEach(
+            (imagePath, index) => {
+
+                player.appendChild(
+                    createAdvertisementSlide(
+                        imagePath,
+                        index + 2
+                    )
+                );
+
+            }
+        );
 
     // ====================================
     // PUBLICIDADE
     // ====================================
 
-    player.appendChild(
-        createAdvertisementSlide()
-    );
+    appendAdvertisementSlides();
 
 
     // ====================================
@@ -1030,7 +1067,7 @@ function createWeatherSlide() {
                 <div class="weather-location">
                      ${escapeHtml(weather.location || "Itapetininga")} - SP
             </div>
-            
+
         </div>
 
             <div class="weather-title">
@@ -1066,43 +1103,42 @@ function createWeatherSlide() {
 // SLIDE DE PUBLICIDADE
 // ========================================
 
-function createAdvertisementSlide() {
+function createAdvertisementSlide(imagePath, number) {
 
     const slide =
-        document.createElement(
-            "section"
-        );
+        document.createElement("section");
 
     slide.className =
-        "slide advertisement-slide";
+        "slide advertisement-image-slide";
 
+    slide.dataset.duration =
+        ADVERTISEMENT_DURATION;
 
     slide.innerHTML = `
-
-        <div class="advertisement-content">
-
-            <span class="label">
-                PUBLICIDADE
-            </span>
-
-            <h1>
-                OFERTA ESPECIAL
-            </h1>
-
-            <p>
-                Seu anúncio pode aparecer aqui.
-            </p>
-
-            <div class="advertisement-box">
-                ESPAÇO PUBLICITÁRIO
-            </div>
-
-        </div>
-
+        <img
+            src="${escapeHtml(imagePath)}"
+            alt="Publicidade"
+            class="advertisement-image"
+        >
     `;
 
-
     return slide;
+}
+
+function appendAdvertisementSlides() {
+
+    ADVERTISEMENTS.forEach(
+        (imagePath, index) => {
+
+            player.appendChild(
+                createAdvertisementSlide(
+                    imagePath,
+                    index + 1
+                )
+            );
+
+        }
+    );
 
 }
 
@@ -1512,12 +1548,33 @@ function showSlide(
     );
 
 
+    // ========================================
+    // DURAÇÃO DO SLIDE
+    // ========================================
+
+    const currentSlide =
+        slides[index];
+
+    const slideDuration =
+        Number(
+            currentSlide?.dataset.duration
+        ) || SLIDE_DURATION;
+
+
+    // ========================================
+    // RESET DA BARRA DE PROGRESSO
+    // ========================================
+
     progress.style.transition =
         "none";
 
     progress.style.width =
         "0%";
 
+
+    // ========================================
+    // ANIMAÇÃO DA BARRA
+    // ========================================
 
     requestAnimationFrame(
         () => {
@@ -1526,7 +1583,7 @@ function showSlide(
                 () => {
 
                     progress.style.transition =
-                        `width ${SLIDE_DURATION}ms linear`;
+                        `width ${slideDuration}ms linear`;
 
                     progress.style.width =
                         "100%";
@@ -1813,21 +1870,17 @@ function scheduleNextWeatherUpdate() {
         )
     );
 
+    const currentSlideElement =
+        slides[currentSlide];
+
+    const slideDuration =
+        Number(
+            currentSlideElement?.dataset.duration
+        ) || SLIDE_DURATION;
+
     setTimeout(
-        async () => {
-
-            if (
-                shouldUpdateWeather()
-            ) {
-
-                await loadWeather();
-
-            }
-
-            scheduleNextWeatherUpdate();
-
-        },
-        delay
+        nextSlide,
+        slideDuration
     );
 }
 
