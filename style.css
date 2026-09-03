@@ -769,3 +769,175 @@ body {
     }
 
 }
+/* =========================================================
+   MEDIA MVP — CLIMA / PREVISÃO 7 DIAS
+   ========================================================= */
+
+.weather-slide {
+    overflow: hidden;
+}
+
+.weather-container {
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    padding: 4vh 4vw 3vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.weather-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 2vh;
+}
+
+.weather-location {
+    font-size: clamp(20px, 3vw, 42px);
+    font-weight: 700;
+}
+
+.weather-title {
+    text-align: center;
+    font-size: clamp(18px, 2.4vw, 34px);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    margin-bottom: 3vh;
+}
+
+.weather-forecast {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 1vw;
+    align-items: stretch;
+}
+
+.weather-day {
+    min-width: 0;
+    padding: 2vh 0.7vw;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.08);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.weather-day-name {
+    font-size: clamp(15px, 2vw, 28px);
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.weather-day-date {
+    margin-top: 0.5vh;
+    font-size: clamp(11px, 1.3vw, 18px);
+    opacity: 0.7;
+}
+
+.weather-day-icon {
+    margin: 1.8vh 0 1vh;
+    font-size: clamp(32px, 4vw, 64px);
+    line-height: 1;
+}
+
+.weather-day-condition {
+    min-height: 2.5em;
+    font-size: clamp(10px, 1.2vw, 17px);
+    line-height: 1.25;
+    opacity: 0.85;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.weather-day-temp {
+    margin-top: 1.5vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3vh;
+}
+
+.weather-day-temp strong {
+    font-size: clamp(22px, 3vw, 42px);
+}
+
+.weather-day-temp span {
+    font-size: clamp(15px, 2vw, 28px);
+    opacity: 0.65;
+}
+
+.weather-updated {
+    margin-top: 2.5vh;
+    text-align: center;
+    font-size: clamp(11px, 1.3vw, 18px);
+    opacity: 0.6;
+}
+
+.weather-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 8vh 2vw;
+    font-size: clamp(18px, 2.5vw, 34px);
+}
+
+@media (max-width: 900px) {
+
+    .weather-container {
+        padding-left: 3vw;
+        padding-right: 3vw;
+    }
+
+    .weather-forecast {
+        gap: 0.6vw;
+    }
+
+    .weather-day {
+        padding-left: 0.4vw;
+        padding-right: 0.4vw;
+        border-radius: 10px;
+    }
+
+}
+
+@media (orientation: portrait) {
+
+    .weather-container {
+        padding: 3vh 2vw;
+    }
+
+    .weather-forecast {
+        gap: 0.5vw;
+    }
+
+    .weather-day-condition {
+        display: none;
+    }
+
+    .weather-day-icon {
+        margin-top: 1vh;
+    }
+
+}
+.weather-header {
+    width: 100%;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 2vh;
+}
+
+.weather-header .label {
+    margin-left: 0;
+    text-align: left;
+}
+
+.weather-location {
+    text-align: right;
+}

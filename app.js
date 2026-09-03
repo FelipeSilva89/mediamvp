@@ -51,12 +51,27 @@ const NEWS_UPDATE_INTERVAL =
 const NEWS_API_URL =
     "https://billowing-thunder-176amediamvp.drigo-felipe.workers.dev";
 
+// Clima
+const WEATHER_API_URL = `${NEWS_API_URL}/weather`;
+
+const WEATHER_UPDATE_DAYS = [1, 4]; // segunda e quinta
+const WEATHER_UPDATE_HOUR = 5;
+const WEATHER_UPDATE_MINUTE = 30;
+
+const WEATHER_STORAGE_KEY = "mediaMvpWeather";
+const WEATHER_LAST_UPDATE_KEY = "mediaMvpWeatherLastUpdate";
 
 // ========================================
 // DADOS
 // ========================================
 
 let news = [];
+
+let weather = {
+    location: "Itapetininga",
+    updatedAt: null,
+    forecast: []
+};
 
 
 // ========================================
@@ -165,6 +180,360 @@ async function loadNews() {
     }
 
 }
+
+// ========================================
+// BUSCAR CLIMA
+// ========================================
+
+function getLocalDateKey(date = new Date()) {
+    const year =
+        date.getFullYear();
+
+    const month =
+        String(
+            date.getMonth() + 1
+        ).padStart(2, "0");
+
+    const day =
+        String(
+            date.getDate()
+        ).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+}
+
+function loadStoredWeather() {
+
+    try {
+
+        const stored =
+            localStorage.getItem(
+                WEATHER_STORAGE_KEY
+            );
+
+        if (!stored) {
+            return false;
+        }
+
+        const parsed =
+            JSON.parse(stored);
+
+        if (
+            !parsed ||
+            !Array.isArray(
+                parsed.forecast
+            ) ||
+            parsed.forecast.length === 0
+        ) {
+            return false;
+        }
+
+        weather = {
+            location:
+                parsed.location ||
+                "Itapetininga",
+
+            updatedAt:
+                parsed.updatedAt ||
+                null,
+
+            forecast:
+                parsed.forecast
+        };
+
+        console.log(
+            "Previsão salva carregada do dispositivo."
+        );
+
+        return true;
+
+    } catch (error) {
+
+        console.warn(
+            "Não foi possível carregar o clima salvo:",
+            error
+        );
+
+        return false;
+    }
+}
+
+async function loadWeather() {
+
+    console.log(
+        "Buscando previsão de 7 dias..."
+    );
+
+    try {
+
+        const response =
+            await fetch(
+                WEATHER_API_URL,
+                {
+                    cache: "no-store"
+                }
+            );
+
+        if (!response.ok) {
+
+            throw new Error(
+                `Erro HTTP ${response.status}`
+            );
+
+        }
+
+        const data =
+            await response.json();
+
+        if (
+            !data.success ||
+            !Array.isArray(
+                data.forecast
+            ) ||
+            data.forecast.length === 0
+        ) {
+
+            throw new Error(
+                "Resposta inválida da API de clima."
+            );
+
+        }
+
+        weather = {
+            location:
+                data.location ||
+                "Itapetininga",
+
+            updatedAt:
+                data.updatedAt ||
+                new Date().toISOString(),
+
+            forecast:
+                data.forecast.slice(0, 7)
+        };
+
+        localStorage.setItem(
+            WEATHER_STORAGE_KEY,
+            JSON.stringify(weather)
+        );
+
+        localStorage.setItem(
+            WEATHER_LAST_UPDATE_KEY,
+            getLocalDateKey()
+        );
+
+        console.log(
+            "Previsão atualizada com sucesso."
+        );
+
+        renderPlaylist();
+
+        return true;
+
+    } catch (error) {
+
+        console.warn(
+            "Não foi possível atualizar o clima:",
+            error
+        );
+
+        if (
+            weather.forecast.length > 0
+        ) {
+
+            console.log(
+                "Mantendo a última previsão válida."
+            );
+
+        } else {
+
+            renderPlaylist();
+
+        }
+
+        return false;
+    }
+}
+
+// ========================================
+// INTERPRETAR CONDIÇÃO DO CLIMA
+// ========================================
+
+function getWeatherCondition(code) {
+
+    const conditions = {
+
+        // ========================================
+        // SOL
+        // ========================================
+
+        1: {
+            icon: "☀️",
+            text: "Ensolarado"
+        },
+
+        2: {
+            icon: "☀️",
+            text: "Ensolarado"
+        },
+
+
+        // ========================================
+        // PARCIALMENTE NUBLADO
+        // ========================================
+
+        3: {
+            icon: "⛅",
+            text: "Parcialmente nublado"
+        },
+
+
+        // ========================================
+        // NUBLADO
+        // ========================================
+
+        4: {
+            icon: "☁️",
+            text: "Nublado"
+        },
+
+        5: {
+            icon: "🌫️",
+            text: "Neblina"
+        },
+
+
+        // ========================================
+        // CHUVA
+        // ========================================
+
+        6: {
+            icon: "🌧️",
+            text: "Chuva"
+        },
+
+        7: {
+            icon: "🌧️",
+            text: "Chuva"
+        },
+
+        12: {
+            icon: "🌧️",
+            text: "Chuva"
+        },
+
+        14: {
+            icon: "🌧️",
+            text: "Chuva"
+        },
+
+        16: {
+            icon: "🌧️",
+            text: "Chuva"
+        },
+
+
+        // ========================================
+        // TROVOADAS
+        // ========================================
+
+        8: {
+            icon: "⛈️",
+            text: "Trovoadas"
+        },
+
+        21: {
+            icon: "⛈️",
+            text: "Trovoadas"
+        },
+
+        22: {
+            icon: "⛈️",
+            text: "Trovoadas"
+        },
+
+        23: {
+            icon: "⛈️",
+            text: "Trovoadas"
+        },
+
+        24: {
+            icon: "⛈️",
+            text: "Trovoadas"
+        },
+
+        25: {
+            icon: "⛈️",
+            text: "Trovoadas"
+        },
+
+
+        // ========================================
+        // POSSIBILIDADE DE GEADA
+        // ========================================
+
+        9: {
+            icon: "🌧️",
+            text: "Possibilidade de geada"
+        },
+
+        10: {
+            icon: "🌧️",
+            text: "Possibilidade de geada"
+        },
+
+        11: {
+            icon: "🌧️",
+            text: "Possibilidade de geada"
+        },
+
+        13: {
+            icon: "🌧️",
+            text: "Possibilidade de geada"
+        },
+
+        15: {
+            icon: "🌧️",
+            text: "Possibilidade de geada"
+        },
+
+        17: {
+            icon: "🌧️",
+            text: "Possibilidade de geada"
+        },
+
+
+        // ========================================
+        // NUBLADO / COBERTO
+        // ========================================
+
+        18: {
+            icon: "☁️",
+            text: "Nublado"
+        },
+
+        19: {
+            icon: "☁️",
+            text: "Nublado"
+        },
+
+        20: {
+            icon: "☁️",
+            text: "Nublado"
+        }
+
+    };
+
+
+    return (
+        conditions[Number(code)] || {
+            icon: "🌤️",
+            text: "Condição variável"
+        }
+    );
+
+}
+
 
 
 // ========================================
@@ -495,10 +864,6 @@ function createNewsSlide(
 // SLIDE DE CLIMA
 // ========================================
 
-// ========================================
-// SLIDE DE CLIMA
-// ========================================
-
 function createWeatherSlide() {
 
     const slide =
@@ -506,82 +871,194 @@ function createWeatherSlide() {
             "section"
         );
 
-
     slide.className =
         "slide weather-slide";
 
+    const forecast =
+        Array.isArray(
+            weather.forecast
+        )
+            ? weather.forecast
+                .slice(0, 7)
+            : [];
+
+    const weekdayFormatter =
+        new Intl.DateTimeFormat(
+            "pt-BR",
+            {
+                weekday: "short"
+            }
+        );
+
+    const dateFormatter =
+        new Intl.DateTimeFormat(
+            "pt-BR",
+            {
+                day: "2-digit",
+                month: "2-digit"
+            }
+        );
+
+    const cards =
+        forecast
+            .map(
+                day => {
+
+                    const date =
+                        new Date(
+                            `${day.date}T12:00:00`
+                        );
+
+                    const condition =
+                        getWeatherCondition(
+                            day.conditionCode
+                        );
+
+                    const weekday =
+                        weekdayFormatter
+                            .format(date)
+                            .replace(
+                                ".",
+                                ""
+                            )
+                            .substring(
+                                0,
+                                3
+                            )
+                            .toUpperCase();
+
+                    const dateLabel =
+                        dateFormatter
+                            .format(date);
+
+                    const max =
+                        Number.isFinite(
+                            Number(day.max)
+                        )
+                            ? Math.round(
+                                Number(day.max)
+                            )
+                            : "--";
+
+                    const min =
+                        Number.isFinite(
+                            Number(day.min)
+                        )
+                            ? Math.round(
+                                Number(day.min)
+                            )
+                            : "--";
+
+                    return `
+                        <div class="weather-day">
+
+                            <div class="weather-day-name">
+                                ${weekday}
+                            </div>
+
+                            <div class="weather-day-date">
+                                ${dateLabel}
+                            </div>
+
+                            <div class="weather-day-icon">
+                                ${condition.icon}
+                            </div>
+
+                            <div class="weather-day-condition">
+                                ${escapeHtml(
+                                    condition.text
+                                )}
+                            </div>
+
+                            <div class="weather-day-temp">
+                                <strong>
+                                    ${max}°
+                                </strong>
+
+                                <span>
+                                    ${min}°
+                                </span>
+                            </div>
+
+                        </div>
+                    `;
+                }
+            )
+            .join("");
+
+    let updatedLabel =
+        "Atualização pendente";
+
+    if (
+        weather.updatedAt
+    ) {
+
+        const updatedDate =
+            new Date(
+                weather.updatedAt
+            );
+
+        if (
+            !Number.isNaN(
+                updatedDate.getTime()
+            )
+        ) {
+
+            updatedLabel =
+                new Intl.DateTimeFormat(
+                    "pt-BR",
+                    {
+                        day: "2-digit",
+                        month: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit"
+                    }
+                ).format(
+                    updatedDate
+                );
+        }
+    }
 
     slide.innerHTML = `
 
         <div class="weather-container">
 
-            <span class="label">
-                CLIMA
-            </span>
+            <div class="weather-header">
 
+                <span class="label">CLIMA</span>
 
-            <div class="weather-cities">
+                <div class="weather-location">
+                     ${escapeHtml(weather.location || "Itapetininga")} - SP
+            </div>
+            
+        </div>
 
+            <div class="weather-title">
+                PREVISÃO DOS PRÓXIMOS 7 DIAS
+            </div>
 
-                <!-- =================================
-                     ITAPETININGA
-                ================================== -->
+            <div class="weather-forecast">
 
-                <div class="weather-city">
+                ${
+                    cards ||
+                    `
+                        <div class="weather-empty">
+                            Previsão indisponível
+                        </div>
+                    `
+                }
 
-                    <div class="weather-icon">
-                        ☀️
-                    </div>
+            </div>
 
-                    <h1>
-                        22°C
-                    </h1>
-
-                    <h2>
-                        Itapetininga - SP
-                    </h2>
-
-                    <p>
-                        Ensolarado
-                    </p>
-
-                </div>
-
-
-                <!-- =================================
-                     SÃO PAULO
-                ================================== -->
-
-                <div class="weather-city">
-
-                    <div class="weather-icon">
-                        ⛅
-                    </div>
-
-                    <h1>
-                        20°C
-                    </h1>
-
-                    <h2>
-                        São Paulo - SP
-                    </h2>
-
-                    <p>
-                        Parcialmente Nublado
-                    </p>
-
-                </div>
-
-
+            <div class="weather-updated">
+                Atualizado em: ${updatedLabel}
             </div>
 
         </div>
 
     `;
 
-
     return slide;
-
 }
 
 
@@ -1180,6 +1657,179 @@ function startNewsUpdater() {
     );
 
 }
+// ========================================
+// ATUALIZAÇÃO DO CLIMA
+// ========================================
+
+function shouldUpdateWeather() {
+
+    const now =
+        new Date();
+
+    const day =
+        now.getDay();
+
+    const hour =
+        now.getHours();
+
+    const minute =
+        now.getMinutes();
+
+    const isUpdateDay =
+        WEATHER_UPDATE_DAYS.includes(
+            day
+        );
+
+    const isAfterScheduledTime =
+        hour >
+            WEATHER_UPDATE_HOUR ||
+        (
+            hour ===
+                WEATHER_UPDATE_HOUR &&
+            minute >=
+                WEATHER_UPDATE_MINUTE
+        );
+
+    const lastUpdate =
+        localStorage.getItem(
+            WEATHER_LAST_UPDATE_KEY
+        );
+
+    const today =
+        getLocalDateKey(now);
+
+    return (
+        isUpdateDay &&
+        isAfterScheduledTime &&
+        lastUpdate !== today
+    );
+}
+
+function getNextWeatherUpdate() {
+
+    const now =
+        new Date();
+
+    const candidate =
+        new Date(now);
+
+    candidate.setHours(
+        WEATHER_UPDATE_HOUR,
+        WEATHER_UPDATE_MINUTE,
+        0,
+        0
+    );
+
+    if (
+        WEATHER_UPDATE_DAYS.includes(
+            now.getDay()
+        ) &&
+        now < candidate
+    ) {
+
+        return candidate;
+    }
+
+    for (
+        let days = 1;
+        days <= 7;
+        days++
+    ) {
+
+        const next =
+            new Date(now);
+
+        next.setDate(
+            now.getDate() + days
+        );
+
+        if (
+            WEATHER_UPDATE_DAYS.includes(
+                next.getDay()
+            )
+        ) {
+
+            next.setHours(
+                WEATHER_UPDATE_HOUR,
+                WEATHER_UPDATE_MINUTE,
+                0,
+                0
+            );
+
+            return next;
+        }
+    }
+
+    return null;
+}
+
+function startWeatherUpdater() {
+
+    const hasStoredWeather =
+        loadStoredWeather();
+
+    if (
+        !hasStoredWeather
+    ) {
+
+        console.log(
+            "Nenhuma previsão local encontrada. " +
+            "Executando atualização inicial."
+        );
+
+        loadWeather();
+
+    } else if (
+        shouldUpdateWeather()
+    ) {
+
+        loadWeather();
+
+    }
+
+    scheduleNextWeatherUpdate();
+}
+
+function scheduleNextWeatherUpdate() {
+
+    const next =
+        getNextWeatherUpdate();
+
+    if (!next) {
+        return;
+    }
+
+    const delay =
+        Math.max(
+            1000,
+            next.getTime() -
+                Date.now()
+        );
+
+    console.log(
+        "Próxima atualização do clima:",
+        next.toLocaleString(
+            "pt-BR"
+        )
+    );
+
+    setTimeout(
+        async () => {
+
+            if (
+                shouldUpdateWeather()
+            ) {
+
+                await loadWeather();
+
+            }
+
+            scheduleNextWeatherUpdate();
+
+        },
+        delay
+    );
+}
 
 
 // ========================================
@@ -1190,7 +1840,9 @@ loadNews();
 
 startNewsUpdater();
 
+startWeatherUpdater();
+
 
 console.log(
-    "Media Player aguardando início."
+    "MVP aguardando início."
 );
