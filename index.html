@@ -108,36 +108,40 @@
          ========================= -->
 
     <script>
-
         if ("serviceWorker" in navigator) {
 
             window.addEventListener(
                 "load",
                 () => {
 
-                    navigator.serviceWorker
-                        .register("./sw.js")
-                        .then(() => {
+                    navigator.serviceWorker.register(
+                        "./sw.js"
+                    )
+                        .then(
+                            (registration) => {
 
-                            console.log(
-                                "Service Worker registrado."
-                            );
+                                console.log(
+                                    "Service Worker registrado:",
+                                    registration.scope
+                                );
 
-                        })
-                        .catch((error) => {
+                            }
+                        )
+                        .catch(
+                            (error) => {
 
-                            console.warn(
-                                "Erro ao registrar Service Worker:",
-                                error
-                            );
+                                console.error(
+                                    "Erro ao registrar Service Worker:",
+                                    error
+                                );
 
-                        });
+                            }
+                        );
 
                 }
             );
 
         }
-
     </script>
 
 </body>
