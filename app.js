@@ -46,7 +46,8 @@ const NEWS_UPDATE_INTERVAL =
     3 * 60 * 60 * 1000;
 
 const ADVERTISEMENTS = [
-    "assets/ads/midia-indoor-Lucas-Franca(slide).png"
+    "assets/ads/midia-indoor-Lucas-Franca(slide).png",
+    "assets/ads/midia-indoor-Lucas-Franca(slide2).png"
 ];
 
 const ADVERTISEMENT_DURATION = 7000;
