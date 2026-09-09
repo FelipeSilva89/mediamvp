@@ -50,7 +50,10 @@ const ADVERTISEMENTS = [
     "assets/ads/midia-indoor-Lucas-Franca(slide2).png"
 ];
 
-const ADVERTISEMENT_DURATION = 7000;
+const ADVERTISEMENT_DURATION = 10000;
+
+const ANNOUNCE_HERE_IMAGE =
+    "assets/ads/anuncie-aqui.png";
 
 
 // ========================================
@@ -658,11 +661,6 @@ function renderPlaylist() {
             }
         );
 
-    // ====================================
-    // PUBLICIDADE
-    // ====================================
-
-    appendAdvertisementSlides();
 
 
     // ====================================
@@ -679,6 +677,14 @@ function renderPlaylist() {
         );
 
     }
+
+    // ====================================
+    // ANUNCIE AQUI — FINAL DA RODADA
+    // ====================================
+
+    player.appendChild(
+        createAnnounceHereSlide()
+    );
 
 
     // Atualiza referência dos slides
@@ -1140,6 +1146,37 @@ function appendAdvertisementSlides() {
 
         }
     );
+
+}
+
+// ========================================
+// SLIDE ANUNCIE AQUI
+// ========================================
+
+function createAnnounceHereSlide() {
+
+    const slide =
+        document.createElement(
+            "section"
+        );
+
+    slide.className =
+        "slide advertisement-image-slide";
+
+    slide.dataset.duration =
+        ADVERTISEMENT_DURATION;
+
+    slide.innerHTML = `
+
+        <img
+            src="${escapeHtml(ANNOUNCE_HERE_IMAGE)}"
+            alt="Anuncie Aqui"
+            class="advertisement-image"
+        >
+
+    `;
+
+    return slide;
 
 }
 
