@@ -70,6 +70,11 @@ const WEATHER_UPDATE_DAYS = [1, 4]; // segunda e quinta
 const WEATHER_UPDATE_HOUR = 5;
 const WEATHER_UPDATE_MINUTE = 30;
 
+// Segurança de atualização
+const WEATHER_MAX_DAYS_WITHOUT_UPDATE = 4;
+const WEATHER_MIN_INTERVAL_MS =
+    24 * 60 * 60 * 1000;
+
 const WEATHER_STORAGE_KEY = "mediaMvpWeather";
 const WEATHER_LAST_UPDATE_KEY = "mediaMvpWeatherLastUpdate";
 
@@ -331,7 +336,7 @@ async function loadWeather() {
 
         localStorage.setItem(
             WEATHER_LAST_UPDATE_KEY,
-            getLocalDateKey()
+            new Date().toISOString()
         );
 
         console.log(
@@ -1770,6 +1775,58 @@ function shouldUpdateWeather() {
     const minute =
         now.getMinutes();
 
+    const lastUpdate =
+        localStorage.getItem(
+            WEATHER_LAST_UPDATE_KEY
+        );
+
+    // ========================================
+    // SEM REGISTRO DE ATUALIZAÇÃO
+    // ========================================
+
+    if (!lastUpdate) {
+
+        return true;
+
+    }
+
+    const lastUpdateTime =
+        new Date(lastUpdate).getTime();
+
+    if (
+        !Number.isFinite(
+            lastUpdateTime
+        )
+    ) {
+
+        return true;
+
+    }
+
+    const elapsed =
+        Date.now() -
+        lastUpdateTime;
+
+
+    // ========================================
+    // PROTEÇÃO DE 24 HORAS
+    // ========================================
+
+    if (
+        elapsed <
+        WEATHER_MIN_INTERVAL_MS
+    ) {
+
+        return false;
+
+    }
+
+
+    // ========================================
+    // ATUALIZAÇÃO PROGRAMADA
+    // SEGUNDA / QUINTA ÀS 05:30
+    // ========================================
+
     const isUpdateDay =
         WEATHER_UPDATE_DAYS.includes(
             day
@@ -1785,19 +1842,38 @@ function shouldUpdateWeather() {
                 WEATHER_UPDATE_MINUTE
         );
 
-    const lastUpdate =
-        localStorage.getItem(
-            WEATHER_LAST_UPDATE_KEY
-        );
-
-    const today =
-        getLocalDateKey(now);
-
-    return (
+    if (
         isUpdateDay &&
-        isAfterScheduledTime &&
-        lastUpdate !== today
-    );
+        isAfterScheduledTime
+    ) {
+
+        return true;
+
+    }
+
+
+    // ========================================
+    // ATUALIZAÇÃO DE SEGURANÇA
+    // MAIS DE 4 DIAS SEM ATUALIZAR
+    // ========================================
+
+    const maxInterval =
+        WEATHER_MAX_DAYS_WITHOUT_UPDATE *
+        24 *
+        60 *
+        60 *
+        1000;
+
+    if (
+        elapsed >=
+        maxInterval
+    ) {
+
+        return true;
+
+    }
+
+    return false;
 }
 
 function getNextWeatherUpdate() {
@@ -1891,7 +1967,9 @@ function scheduleNextWeatherUpdate() {
         getNextWeatherUpdate();
 
     if (!next) {
+
         return;
+
     }
 
     const delay =
@@ -1908,17 +1986,25 @@ function scheduleNextWeatherUpdate() {
         )
     );
 
-    const currentSlideElement =
-        slides[currentSlide];
-
-    const slideDuration =
-        Number(
-            currentSlideElement?.dataset.duration
-        ) || SLIDE_DURATION;
-
     setTimeout(
-        nextSlide,
-        slideDuration
+        async () => {
+
+            if (
+                shouldUpdateWeather()
+            ) {
+
+                console.log(
+                    "Executando atualização programada do clima."
+                );
+
+                await loadWeather();
+
+            }
+
+            scheduleNextWeatherUpdate();
+
+        },
+        delay
     );
 }
 
