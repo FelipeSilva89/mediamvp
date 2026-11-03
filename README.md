@@ -1,115 +1,190 @@
 # MediaMVP
 
-PWA de sinalização digital para exibição contínua em tablet ou TV. O player alterna notícias regionais do G1, previsão do tempo de Itapetininga e um espaço de publicidade. O uso principal é em tela cheia, sem interação depois que o operador inicia o player.
+PWA de sinalização digital (Digital Signage) para reprodução contínua em tablet ou TV. O player exibe notícias regionais do G1, previsão do tempo de Itapetininga e anúncios em imagem. A operação prevista é simples: o operador abre o player, toca em **INICIAR PLAYER** e a aplicação alterna os slides automaticamente.
 
-## Visão geral
+## 1. Visão geral
 
-O projeto é um frontend estático, sem framework e sem etapa de build. O frontend chama um Cloudflare Worker público, que:
+A aplicação é composta por um frontend estático, sem framework e sem etapa de build, e um backend serverless executado em Cloudflare Workers.
 
-- lê o RSS de `G1 Itapetininga e Região`;
-- normaliza os cinco primeiros itens de notícia;
-- encontra imagens no RSS ou na página da notícia;
-- entrega imagens por proxy com allowlist de domínios;
-- consulta a API Meteoblue `basic-day` para sete dias em Itapetininga.
+O frontend carrega notícias e previsão do tempo, monta e controla a playlist, exibe imagens publicitárias locais, tenta ativar tela cheia e Wake Lock após a interação do operador e armazena a previsão do tempo no `localStorage`.
 
-Fluxo da tela:
+O Cloudflare Worker consulta o RSS regional do G1, extrai e normaliza notícias e imagens, disponibiliza um proxy de imagens com allowlist de domínios e consulta a API Meteoblue para previsão diária de sete dias.
 
-1. Ao abrir, o operador toca em **INICIAR PLAYER**.
-2. O navegador tenta entrar em fullscreen e adquirir Wake Lock para manter a tela ligada.
-3. Os slides são exibidos por 10 segundos cada, com barra de progresso.
-4. A playlist contém, na ordem, notícias 1 e 2, clima, notícias 3 e 4, publicidade e notícia 5.
+## 2. Fluxo atual da playlist
 
-## Arquivos
+A duração padrão dos slides é de **10 segundos**. A publicidade em imagem e o slide final “Anuncie Aqui” também usam 10 segundos.
 
-- `index.html`: tela inicial, contêiner do player e registro do service worker.
-- `app.js`: estado do player, carregamento de notícias e clima, geração dos slides, fullscreen, Wake Lock e agendadores.
-- `style.css`: layout dos slides, estilos da tela inicial, notícias, clima, publicidade e responsividade.
-- `worker.js`: backend Cloudflare Worker e proxy das fontes externas.
-- `sw.js`: cache offline dos arquivos estáticos e fallback de rede.
-- `manifest.json`: metadados para instalação como PWA; ainda não há ícones configurados.
+Com cinco notícias e dois anúncios comerciais cadastrados, a ordem atual em `renderPlaylist()` é:
 
-## Contratos externos
+1. Notícia 1 — 10 s
+2. Notícia 2 — 10 s
+3. Publicidade 1 — 10 s
+4. Clima — 10 s
+5. Notícia 3 — 10 s
+6. Notícia 4 — 10 s
+7. Publicidade 2 — 10 s
+8. Notícia 5 — 10 s
+9. Imagem “Anuncie Aqui” — 10 s
+10. Reinicia na Notícia 1.
 
-### Worker
+A playlist é montada dinamicamente. Notícias ausentes não geram slides. O slide “Anuncie Aqui” é acrescentado ao final de cada rodada.
 
-URL usada pelo frontend em `app.js`:
+### Arquivos de publicidade
+
+Os caminhos atualmente configurados em `app.js` são:
+
+- `assets/ads/midia-indoor-Lucas-Franca(slide).png`
+- `assets/ads/midia-indoor-Lucas-Franca(slide2).png`
+- `assets/ads/anuncie-aqui.png`
+
+Para adicionar, remover ou trocar anúncios, atualize os caminhos no array `ADVERTISEMENTS` ou a constante `ANNOUNCE_HERE_IMAGE`, conforme o tipo de slide. Colocar um arquivo na pasta, por si só, não o inclui na playlist.
+
+A imagem recomendada para o formato de tela é 1920 × 1080 px (16:9).
+
+## 3. Arquivos do projeto
+
+- `index.html`: estrutura da tela inicial, contêiner do player, barra de progresso e registro do service worker.
+- `app.js`: configurações, estado do player, carregamento de notícias e clima, montagem da playlist, renderização dos slides, timers, fullscreen e Wake Lock.
+- `style.css`: estilos da tela inicial, notícias, clima, publicidade e responsividade.
+- `worker.js`: backend Cloudflare Worker, integração com RSS/Meteoblue e proxy de imagens.
+- `sw.js`: service worker da PWA e estratégia de cache. **O arquivo não foi incluído no conjunto mais recente analisado; consulte o código publicado antes de alterar ou documentar detalhes específicos da estratégia de cache.**
+- `manifest.json`: metadados da PWA. Atualmente não há ícones configurados.
+
+Não foi identificado `package.json`, processo de build ou suíte de testes automatizados nos arquivos analisados.
+
+## 4. Contratos do Cloudflare Worker
+
+URL configurada no frontend:
 
 `https://billowing-thunder-176amediamvp.drigo-felipe.workers.dev`
 
 Rotas:
 
-- `GET /`: busca o RSS e retorna `{ success, source, updatedAt, count, news }`.
-- `GET /weather`: consulta Meteoblue e retorna `{ success, location, updatedAt, forecast }`.
-- `GET /image?url=...`: faz proxy de imagens somente de `g1.globo.com` e subdomínios de `glbimg.com`.
-- `OPTIONS`: responde ao preflight CORS.
+- `GET /`: consulta o RSS e retorna `{ success, source, updatedAt, count, news }`.
+- `GET /weather`: consulta a Meteoblue e retorna `{ success, location, updatedAt, forecast }`.
+- `GET /image?url=...`: obtém imagens externas somente dos domínios permitidos.
+- `OPTIONS`: responde às requisições de preflight CORS.
 
-Cada item de `news` possui `title`, `description`, `link`, `pubDate` e `image`. Cada item de `forecast` possui `date`, `max`, `min` e `conditionCode`.
-
-### Variáveis do Worker
-
-O deploy precisa fornecer o secret `METEOBLUE_API_KEY`. A chave não deve ser colocada no `app.js`, no HTML ou neste README. O Worker usa as coordenadas de Itapetininga (`-23.5917`, `-48.0531`), timezone `America/Sao_Paulo` e `forecastDays=7`.
-
-## Atualização e cache
+Cada notícia possui `title`, `description`, `link`, `pubDate` e `image`. Cada item da previsão possui `date`, `max`, `min` e `conditionCode`.
 
 ### Notícias
 
-- Limite: cinco notícias.
-- Intervalo no frontend: três horas.
-- Em erro, as notícias já carregadas permanecem na tela.
-- O Worker define cache HTTP de três horas para respostas e imagens.
+Fonte RSS configurada em `worker.js`:
 
-### Clima
+`https://g1.globo.com/rss/g1/sp/itapetininga-regiao`
 
-- Primeira abertura sem dados locais: busca imediatamente.
-- Atualiza às segundas e quintas após 05:30.
-- Se o tablet estava desligado no horário, atualiza na primeira abertura daquele dia.
-- Nos demais dias, usa a previsão salva em `localStorage`.
-- Chaves locais: `mediaMvpWeather` e `mediaMvpWeatherLastUpdate`.
-- A última atualização é exibida no slide; não há temperatura atual, somente máximas e mínimas diárias.
-- O cache do Worker para clima dura 70 horas, suficiente para cobrir o intervalo entre atualizações programadas.
+O Worker limita o retorno a cinco notícias e tenta obter imagem do RSS; caso ausente, procura metadados/imagens na página da notícia. O frontend identifica a fonte como **G1 Itapetininga e Região** e atualiza as notícias a cada três horas.
 
-O horário do agendamento é o horário local do dispositivo. A API Meteoblue é consultada explicitamente no timezone de Sao Paulo.
+### Proxy de imagens
 
-## Execução local
+A rota `/image` valida a URL recebida e permite somente `g1.globo.com` e `glbimg.com` (incluindo subdomínios). Não remover essa validação nem transformar o proxy em um buscador de URLs arbitrárias: a allowlist protege contra acesso indevido a destinos externos.
 
-Não abra `index.html` diretamente com `file://`: o service worker exige um contexto seguro. Sirva a pasta por HTTP, por exemplo:
+## 5. Clima e consumo da Meteoblue
+
+O Worker consulta o pacote **`basic-day`** da Meteoblue, para Itapetininga, com timezone `America/Sao_Paulo` e previsão de sete dias.
+
+Coordenadas:
+- Latitude: `-23.5917`
+- Longitude: `-48.0531`
+
+A resposta usada pelo frontend contém `date`, `max`, `min` e `conditionCode` para cada dia. O slide apresenta máximas, mínimas, condição meteorológica e data/hora da última atualização. Não há temperatura atual por hora.
+
+### Política de atualização no frontend
+
+Configuração atual em `app.js`:
+
+- Atualização programada: segunda e quinta-feira, às **05:30**, no horário local do dispositivo.
+- Limite de validade: após **4 dias** sem atualização, uma nova consulta fica elegível.
+- Proteção de frequência: não realizar outra consulta se a última chamada bem-sucedida ocorreu há menos de **24 horas**.
+- Primeira execução sem previsão local válida: consulta imediatamente.
+- Ao iniciar, o player carrega primeiro a previsão salva e verifica se uma atualização é necessária.
+- Se o dispositivo ficou desligado e for ligado em um dia fora da agenda, a verificação de inicialização pode realizar a atualização emergencial quando o intervalo máximo tiver sido ultrapassado.
+- A previsão é persistida nas chaves `mediaMvpWeather` e `mediaMvpWeatherLastUpdate`.
+- O horário da última atualização é armazenado como timestamp ISO (`toISOString()`).
+
+**Importante sobre o limite de quatro dias:** no código analisado, a verificação emergencial é feita na inicialização do player. Enquanto o player permanece aberto, o timer agenda as verificações para os próximos horários programados (segunda/quinta às 05:30); não existe um timer diário separado para disparar exatamente no instante em que se completam quatro dias. Portanto, a regra deve ser entendida como uma verificação de validade ao iniciar e nos horários programados, e não como um alarme exato de 96 horas.
+
+A trava de 24 horas e a regra de quatro dias são controles do frontend. O Worker não implementa, no código analisado, um controle global de chamadas por dispositivo. O cache HTTP do endpoint `/weather` está configurado para **70 horas** (`WEATHER_CACHE_SECONDS = 70 * 60 * 60`). Uma requisição ao Worker pode ser atendida por uma resposta em cache; não se deve assumir que cada acesso ao endpoint necessariamente representa uma nova chamada faturável à Meteoblue.
+
+### Secret
+
+O deploy do Worker exige o secret `METEOBLUE_API_KEY`. A chave deve ser configurada como secret no Cloudflare e nunca deve ser colocada no frontend, no HTML, no repositório ou neste README.
+
+## 6. Execução local
+
+Não abra `index.html` diretamente por `file://`, pois o service worker exige contexto seguro. Sirva a pasta por HTTP, por exemplo:
 
 ```powershell
 py -m http.server 8000
 ```
 
-Depois acesse `http://localhost:8000`. Não existe `package.json`, portanto não há `npm install`, build ou suíte de testes configurada. Para testar o fluxo completo, o dispositivo precisa ter acesso à URL do Worker e o navegador deve suportar fullscreen e, idealmente, Wake Lock.
+Acesse `http://localhost:8000`.
 
-## Deploy
+Para testar notícias e clima, o navegador precisa ter acesso à URL pública do Worker. Fullscreen e Wake Lock dependem do suporte do navegador e da interação do usuário.
+
+## 7. Service Worker, cache e publicação
+
+O `sw.js` analisado utiliza estratégia **Network First** para arquivos da mesma origem:
+
+1. Durante a instalação, abre o cache identificado por `media-player-2026-10-30` e pré-carrega `./`, `index.html`, `style.css`, `app.js` e `manifest.json`.
+2. Durante a ativação, remove os caches cujo nome seja diferente do cache atual e assume o controle das páginas abertas.
+3. Para requisições `GET` da própria origem, tenta buscar a versão da rede primeiro.
+4. Quando a busca de rede funciona, inicia a gravação de uma cópia no cache e devolve a resposta.
+5. Se a rede falhar, tenta responder com uma cópia existente no cache.
+6. Para requisições externas, incluindo Worker e APIs, encaminha diretamente para `fetch()`; essas respostas não são armazenadas por esse Service Worker.
+7. Requisições que não sejam `GET` não são interceptadas.
+
+### Atualização da versão em cache
+
+A versão atual está definida em `APP_VERSION` como `2026-10-30`. Ao publicar uma nova versão do frontend, altere esse valor para um identificador novo. Isso cria um novo nome de cache; na ativação, os caches antigos são removidos.
+
+O `sw.js` chama `skipWaiting()` na instalação e `clients.claim()` na ativação. Ainda assim, uma página que já esteja aberta pode continuar executando o JavaScript carregado anteriormente até ser recarregada ou reaberta.
+
+### Observações técnicas do código atual
+
+- A resposta da rede é gravada no cache sem verificar `response.ok`; portanto, respostas HTTP de erro também podem ser armazenadas.
+- A gravação via `cache.put()` é iniciada, mas não é aguardada antes de devolver a resposta ao navegador.
+- No fallback offline, `caches.match(request)` procura a requisição nos caches disponíveis. Como a ativação apaga caches antigos, o fallback depende principalmente do cache da versão ativa.
+- O cache inicial contém os arquivos listados acima. Assets locais referenciados pelo CSS ou criados dinamicamente podem entrar no cache quando forem solicitados pela rede, mas não são pré-carregados nessa lista.
+
+Esses pontos descrevem o arquivo recebido; não foram feitas alterações no `sw.js`.
 
 ### Frontend
 
-Publique os arquivos estáticos `index.html`, `app.js`, `style.css`, `manifest.json` e `sw.js` em hospedagem HTTPS. O service worker usa cache-first; ao publicar alterações, incremente `CACHE_NAME` em `sw.js` para forçar uma nova versão dos arquivos.
+Publique por HTTPS os arquivos estáticos do frontend e os assets referenciados. Inclua `sw.js` na publicação, mantendo o caminho esperado pelo registro em `index.html` (`./sw.js`). Depois de publicar, valide no dispositivo se o Service Worker ativo está usando a nova versão.
 
 ### Worker
 
-Publique `worker.js` em Cloudflare Workers e configure `METEOBLUE_API_KEY` como secret. A URL publicada precisa ser atualizada em `NEWS_API_URL` caso o Worker seja renomeado ou trocado.
+Publique `worker.js` no Cloudflare Workers e configure `METEOBLUE_API_KEY` como secret. Se a URL do Worker mudar, atualize `NEWS_API_URL` em `app.js`.
 
-## Pontos de manutenção
+### Worker
 
-- Ao alterar o formato de `forecast`, atualize simultaneamente `handleWeather()` no Worker, `loadWeather()` e `createWeatherSlide()` no frontend.
-- Ao alterar a quantidade ou ordem dos slides, revise `renderPlaylist()` e o contador das notícias.
-- Ao trocar fontes de imagem, atualize `ALLOWED_IMAGE_HOSTS`; a allowlist existe para impedir que o proxy busque qualquer URL arbitrária.
-- O parser do RSS e os extratores de imagem são baseados em expressões regulares. Mudanças no markup do G1 podem exigir ajuste em `parseRSS()`, `findArticleImage()` e seus helpers.
-- O cache local de clima pode ser limpo pelo DevTools em Application/Storage, removendo `mediaMvpWeather` e `mediaMvpWeatherLastUpdate`.
-- A publicidade atual é apenas um placeholder. Não existe cadastro, agendamento ou carregamento de anúncios.
+Publique `worker.js` no Cloudflare Workers e configure `METEOBLUE_API_KEY` como secret. Se a URL do Worker mudar, atualize `NEWS_API_URL` em `app.js`.
 
-## Checklist de diagnóstico
+## 8. Regras de manutenção
 
-1. Verifique o Console do navegador: o app registra carregamento de notícias, clima, playlist e Wake Lock.
-2. Teste `GET /` e `GET /weather` na URL do Worker e confirme respostas `success: true`.
-3. Se notícias aparecem sem imagem, verifique o retorno de `GET /image?url=...` e o `Content-Type` da imagem.
-4. Se arquivos antigos continuam carregados, incremente `CACHE_NAME` e recarregue o PWA.
-5. Se o clima não atualiza, confira a chave `METEOBLUE_API_KEY`, o horário local do tablet e o valor salvo em `mediaMvpWeatherLastUpdate`.
+- Alterações no contrato `forecast` devem ser refletidas no Worker (`handleWeather()`), no frontend (`loadWeather()` e `createWeatherSlide()`) e nesta documentação.
+- Alterações na ordem ou quantidade de slides devem ser feitas em `renderPlaylist()` e validadas junto com a duração por slide.
+- Alterações nas imagens de publicidade devem respeitar os caminhos configurados em `ADVERTISEMENTS` e `ANNOUNCE_HERE_IMAGE`.
+- Alterações nas fontes de imagem devem ser acompanhadas de revisão de `ALLOWED_IMAGE_HOSTS`; preservar a validação de domínio.
+- O parser RSS e os extratores de imagem usam expressões regulares. Mudanças no markup do G1 podem exigir ajustes em `parseRSS()`, `findArticleImage()` e helpers relacionados.
+- Não reduzir a proteção de frequência nem aumentar a frequência da Meteoblue sem avaliar o orçamento de créditos.
+- Não incluir a chave da Meteoblue em arquivos públicos.
+- Se alterar o formato do timestamp de `WEATHER_LAST_UPDATE_KEY`, considerar a compatibilidade com valores já gravados no `localStorage`.
 
-## Próximos passos naturais
+## 9. Diagnóstico
+
+1. No Console do navegador, verifique os logs de carregamento de notícias, clima, criação da playlist e Wake Lock.
+2. Teste `GET /` e `GET /weather` diretamente e confirme `success: true`.
+3. Se notícias não exibirem imagem, verifique a URL de `/image`, o status HTTP e o `Content-Type`.
+4. Se o clima não atualizar, confira `METEOBLUE_API_KEY`, o horário local do tablet, as chaves `mediaMvpWeather` e `mediaMvpWeatherLastUpdate` e a regra `shouldUpdateWeather()`.
+5. Se o player mantiver arquivos antigos, inspecione o service worker ativo e o cache do navegador antes de alterar a estratégia.
+6. Se a previsão estiver antiga, diferencie uma chamada ao Worker de uma chamada efetiva à API Meteoblue; verifique também o cache HTTP de 70 horas.
+
+## 10. Pendências e evoluções possíveis
 
 - Adicionar ícones reais ao `manifest.json`.
-- Criar uma configuração de deploy do Worker (por exemplo, `wrangler.toml`) sem incluir secrets.
-- Separar configurações editáveis, como URL do Worker, duração dos slides e publicidade, do código principal.
-- Adicionar testes para parsing do RSS, normalização do clima e regras de atualização.
+- Avaliar se o `sw.js` deve armazenar somente respostas HTTP bem-sucedidas e aguardar a gravação no cache (`cache.put`) antes de concluir a resposta.
+- Considerar centralizar configurações editáveis (URL do Worker, durações e assets) em um arquivo de configuração.
+- Criar testes para parser RSS, normalização dos dados meteorológicos, montagem da playlist e regras de atualização.
+- Evoluir a gestão de anúncios para cadastro, períodos de veiculação e relatórios, quando houver necessidade de produto.
