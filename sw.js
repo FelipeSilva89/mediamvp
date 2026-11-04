@@ -1,4 +1,4 @@
-const APP_VERSION = "2026-10-30";
+const APP_VERSION = "2026-11-03-3";
 
 const CACHE_NAME = `media-player-${APP_VERSION}`;
 

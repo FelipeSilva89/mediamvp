@@ -14,6 +14,49 @@ const startScreen =
 const startButton =
     document.getElementById("start-button");
 
+const welcomeClock =
+    document.getElementById("welcome-clock");
+
+const welcomeDate =
+    document.getElementById("welcome-date");
+
+const welcomeGreeting =
+    document.getElementById("welcome-greeting");
+
+// Atualiza relógio, data e saudação sem depender de API.
+function updateWelcomeScreen() {
+    const now = new Date();
+
+    if (welcomeClock) {
+        welcomeClock.textContent = now.toLocaleTimeString("pt-BR", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false
+        });
+    }
+
+    if (welcomeDate) {
+        const formattedDate = new Intl.DateTimeFormat("pt-BR", {
+            weekday: "long",
+            day: "2-digit",
+            month: "long"
+        }).format(now);
+        welcomeDate.textContent = formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1);
+    }
+
+    if (welcomeGreeting) {
+        const hour = now.getHours();
+        let greeting = "Olá! Seja bem-vindo!";
+        if (hour >= 5 && hour < 12) greeting = "Bom dia! Seja bem-vindo!";
+        else if (hour >= 12 && hour < 18) greeting = "Boa tarde! Seja bem-vindo!";
+        else greeting = "Boa noite! Seja bem-vindo!";
+        welcomeGreeting.textContent = greeting;
+    }
+}
+
+updateWelcomeScreen();
+setInterval(updateWelcomeScreen, 1000);
+
 
 
 
@@ -51,6 +94,13 @@ const ADVERTISEMENTS = [
 ];
 
 const ADVERTISEMENT_DURATION = 10000;
+
+// Publicidades exclusivas do painel de clima (coluna esquerda).
+// Use peças verticais: recomendação 800 x 1200 px.
+const WEATHER_ADVERTISEMENTS = [
+    "assets/ads/clima-anuncio-1.jpg",
+    "assets/ads/clima-anuncio-2.jpg"
+];
 
 const ANNOUNCE_HERE_IMAGE =
     "assets/ads/anuncie-aqui.png";
@@ -731,6 +781,19 @@ function renderPlaylist() {
 }
 
 
+// Marca compacta reutilizada nos slides editoriais e de clima.
+function createBrandMarkup(extraClass = "") {
+    return `
+        <div class="media-brand ${extraClass}" aria-label="MediaMVP">
+            <svg viewBox="0 0 72 72" aria-hidden="true">
+                <path d="M12 8 L12 64 L52 36 Z" fill="none" stroke="currentColor" stroke-width="8" stroke-linejoin="round" />
+                <path d="M53 18 Q67 36 53 54 M61 10 Q81 36 61 62" fill="none" stroke="#13baff" stroke-width="5" stroke-linecap="round" />
+            </svg>
+            <span>Media<span class="media-brand-accent">MVP</span></span>
+        </div>
+    `;
+}
+
 // ========================================
 // CRIAR SLIDE DE NOTÍCIA
 // ========================================
@@ -775,6 +838,7 @@ function createNewsSlide(
         <div class="news-wrapper">
 
             <div class="news-header">
+                ${createBrandMarkup()}
 
                 <span class="label">
                     NOTÍCIAS
@@ -914,198 +978,83 @@ function createNewsSlide(
 // ========================================
 
 function createWeatherSlide() {
+    const slide = document.createElement("section");
+    slide.className = "slide weather-slide";
 
-    const slide =
-        document.createElement(
-            "section"
-        );
+    const forecast = Array.isArray(weather.forecast)
+        ? weather.forecast.slice(0, 7)
+        : [];
 
-    slide.className =
-        "slide weather-slide";
+    const weekdayFormatter = new Intl.DateTimeFormat("pt-BR", { weekday: "short" });
+    const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" });
 
-    const forecast =
-        Array.isArray(
-            weather.forecast
-        )
-            ? weather.forecast
-                .slice(0, 7)
-            : [];
+    const cards = forecast.map((day) => {
+        const date = new Date(`${day.date}T12:00:00`);
+        const condition = getWeatherCondition(day.conditionCode);
+        const weekday = weekdayFormatter.format(date).replace(".", "").substring(0, 3).toUpperCase();
+        const dateLabel = dateFormatter.format(date);
+        const max = Number.isFinite(Number(day.max)) ? Math.round(Number(day.max)) : "--";
+        const min = Number.isFinite(Number(day.min)) ? Math.round(Number(day.min)) : "--";
 
-    const weekdayFormatter =
-        new Intl.DateTimeFormat(
-            "pt-BR",
-            {
-                weekday: "short"
-            }
-        );
+        return `
+            <article class="weather-day">
+                <div class="weather-day-heading">
+                    <strong>${weekday}</strong>
+                    <span>${dateLabel}</span>
+                </div>
+                <div class="weather-day-icon" aria-hidden="true">${condition.icon}</div>
+                <div class="weather-day-condition">${escapeHtml(condition.text)}</div>
+                <div class="weather-day-temp"><strong>${max}°</strong><span>${min}°</span></div>
+            </article>
+        `;
+    }).join("");
 
-    const dateFormatter =
-        new Intl.DateTimeFormat(
-            "pt-BR",
-            {
-                day: "2-digit",
-                month: "2-digit"
-            }
-        );
-
-    const cards =
-        forecast
-            .map(
-                day => {
-
-                    const date =
-                        new Date(
-                            `${day.date}T12:00:00`
-                        );
-
-                    const condition =
-                        getWeatherCondition(
-                            day.conditionCode
-                        );
-
-                    const weekday =
-                        weekdayFormatter
-                            .format(date)
-                            .replace(
-                                ".",
-                                ""
-                            )
-                            .substring(
-                                0,
-                                3
-                            )
-                            .toUpperCase();
-
-                    const dateLabel =
-                        dateFormatter
-                            .format(date);
-
-                    const max =
-                        Number.isFinite(
-                            Number(day.max)
-                        )
-                            ? Math.round(
-                                Number(day.max)
-                            )
-                            : "--";
-
-                    const min =
-                        Number.isFinite(
-                            Number(day.min)
-                        )
-                            ? Math.round(
-                                Number(day.min)
-                            )
-                            : "--";
-
-                    return `
-                        <div class="weather-day">
-
-                            <div class="weather-day-name">
-                                ${weekday}
-                            </div>
-
-                            <div class="weather-day-date">
-                                ${dateLabel}
-                            </div>
-
-                            <div class="weather-day-icon">
-                                ${condition.icon}
-                            </div>
-
-                            <div class="weather-day-condition">
-                                ${escapeHtml(
-                                    condition.text
-                                )}
-                            </div>
-
-                            <div class="weather-day-temp">
-                                <strong>
-                                    ${max}°
-                                </strong>
-
-                                <span>
-                                    ${min}°
-                                </span>
-                            </div>
-
-                        </div>
-                    `;
-                }
-            )
-            .join("");
-
-    let updatedLabel =
-        "Atualização pendente";
-
-    if (
-        weather.updatedAt
-    ) {
-
-        const updatedDate =
-            new Date(
-                weather.updatedAt
-            );
-
-        if (
-            !Number.isNaN(
-                updatedDate.getTime()
-            )
-        ) {
-
-            updatedLabel =
-                new Intl.DateTimeFormat(
-                    "pt-BR",
-                    {
-                        day: "2-digit",
-                        month: "2-digit",
-                        hour: "2-digit",
-                        minute: "2-digit"
-                    }
-                ).format(
-                    updatedDate
-                );
+    let updatedLabel = "Atualização pendente";
+    if (weather.updatedAt) {
+        const updatedDate = new Date(weather.updatedAt);
+        if (!Number.isNaN(updatedDate.getTime())) {
+            updatedLabel = new Intl.DateTimeFormat("pt-BR", {
+                day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit"
+            }).format(updatedDate);
         }
     }
 
+    const adMarkup = WEATHER_ADVERTISEMENTS.map((imagePath, index) => `
+        <div class="weather-ad-slot" data-ad-slot="${index + 1}">
+            <img src="${escapeHtml(imagePath)}" alt="Publicidade" loading="eager">
+        </div>
+    `).join("");
+
     slide.innerHTML = `
-
-        <div class="weather-container">
-
-            <div class="weather-header">
-
-                <span class="label">CLIMA</span>
-
-                <div class="weather-location">
-                     ${escapeHtml(weather.location || "Itapetininga")} - SP
+        <aside class="weather-ad-column" aria-label="Espaços publicitários">
+            ${adMarkup}
+        </aside>
+        <section class="weather-dashboard" aria-label="Previsão do tempo">
+            <header class="weather-dashboard-header">
+                <div>
+                    <span class="weather-eyebrow">PREVISÃO DO TEMPO</span>
+                    <h1>${escapeHtml(weather.location || "Itapetininga")} <span>— SP</span></h1>
+                </div>
+                ${createBrandMarkup("media-brand-weather")}
+            </header>
+            <div class="weather-panel-title">
+                <span>Próximos 7 dias</span>
+                <span class="weather-live-indicator"><i></i> Acompanhe a previsão</span>
             </div>
-
-        </div>
-
-            <div class="weather-title">
-                PREVISÃO DOS PRÓXIMOS 7 DIAS
-            </div>
-
             <div class="weather-forecast">
-
-                ${
-                    cards ||
-                    `
-                        <div class="weather-empty">
-                            Previsão indisponível
-                        </div>
-                    `
-                }
-
+                ${cards || '<div class="weather-empty">Previsão indisponível no momento</div>'}
             </div>
-
-            <div class="weather-updated">
-                Atualizado em: ${updatedLabel}
-            </div>
-
-        </div>
-
+            <footer class="weather-updated">Última atualização: ${updatedLabel}</footer>
+        </section>
     `;
+
+    // Imagem ausente não exibe ícone quebrado nem conteúdo concorrente.
+    slide.querySelectorAll(".weather-ad-slot img").forEach((img) => {
+        img.addEventListener("error", () => {
+            img.parentElement.classList.add("is-empty");
+            img.remove();
+        }, { once: true });
+    });
 
     return slide;
 }
@@ -1127,11 +1076,9 @@ function createAdvertisementSlide(imagePath, number) {
         ADVERTISEMENT_DURATION;
 
     slide.innerHTML = `
-        <img
-            src="${escapeHtml(imagePath)}"
-            alt="Publicidade"
-            class="advertisement-image"
-        >
+        <img src="${escapeHtml(imagePath)}" alt="" class="advertisement-backdrop" aria-hidden="true">
+        <img src="${escapeHtml(imagePath)}" alt="Publicidade" class="advertisement-image">
+        ${createBrandMarkup("media-brand-ad")}
     `;
 
     return slide;
@@ -1172,13 +1119,9 @@ function createAnnounceHereSlide() {
         ADVERTISEMENT_DURATION;
 
     slide.innerHTML = `
-
-        <img
-            src="${escapeHtml(ANNOUNCE_HERE_IMAGE)}"
-            alt="Anuncie Aqui"
-            class="advertisement-image"
-        >
-
+        <img src="${escapeHtml(ANNOUNCE_HERE_IMAGE)}" alt="" class="advertisement-backdrop" aria-hidden="true">
+        <img src="${escapeHtml(ANNOUNCE_HERE_IMAGE)}" alt="Anuncie Aqui" class="advertisement-image">
+        ${createBrandMarkup("media-brand-ad")}
     `;
 
     return slide;

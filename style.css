@@ -1,170 +1,77 @@
 /* ========================================
-   RESET
+   BASE
    ======================================== */
-
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-}
-
-
-html,
-body {
-
-    width: 100%;
-    height: 100%;
-
-    overflow: hidden;
-
-    font-family:
-        Arial,
-        Helvetica,
-        sans-serif;
-
-}
-
-
-body {
-
-    background: #111;
-
-}
-
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; font-family: Inter, "Segoe UI", Arial, sans-serif; }
+body { background: #061b45; }
 
 /* ========================================
-   TELA INICIAL
+   TELA INICIAL — PREMIUM DIGITAL SIGNAGE
+   A imagem final será aplicada neste caminho:
+   assets/images/media-mvp-background.jpg
    ======================================== */
-
 #start-screen {
-
+    --welcome-bg: url("assets/images/media-mvp-background.jpg");
     position: fixed;
-
     inset: 0;
-
     z-index: 9999;
-
-    display: flex;
-
-    align-items: center;
-
-    justify-content: center;
-
-    background: #111;
-
-    color: white;
-
-    text-align: center;
-
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    padding: clamp(24px, 4.2vw, 68px) clamp(26px, 4.2vw, 72px) clamp(28px, 3.5vw, 56px);
+    overflow: hidden;
+    color: #fff;
+    isolation: isolate;
+    background-color: #071b45;
+    background-image:
+        linear-gradient(180deg, rgba(3, 15, 48, .60) 0%, rgba(3, 16, 45, .12) 35%, rgba(3, 13, 39, .28) 62%, rgba(2, 14, 43, .94) 100%),
+        linear-gradient(90deg, rgba(3, 16, 48, .28), transparent 55%, rgba(3, 16, 48, .12)),
+        var(--welcome-bg);
+    background-size: cover;
+    background-position: center;
 }
-
-
-.start-content {
-
-    width: 90%;
-
-    max-width: 600px;
-
+#start-screen::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(ellipse at 50% 48%, rgba(4, 19, 49, .08) 0%, rgba(4, 19, 49, .03) 38%, rgba(4, 19, 49, .25) 100%);
 }
+.welcome-header, .welcome-footer { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.brand { display: inline-flex; align-items: center; gap: 12px; font-size: clamp(27px, 3.2vw, 48px); line-height: 1; font-weight: 800; letter-spacing: -1.8px; text-shadow: 0 2px 16px rgba(0,0,0,.35); white-space: nowrap; }
+.brand-symbol { width: clamp(40px, 4.4vw, 66px); height: clamp(40px, 4.4vw, 66px); flex: 0 0 auto; }
+.brand-accent { color: #17b9ff; }
+.welcome-date { padding: 13px 22px; border: 1px solid rgba(255,255,255,.25); border-radius: 999px; background: rgba(5, 23, 58, .35); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); font-size: clamp(15px, 1.65vw, 25px); font-weight: 600; text-shadow: 0 2px 8px rgba(0,0,0,.4); white-space: nowrap; }
+.welcome-center { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 20px 12px 36px; transform: translateY(-1.5%); }
+.welcome-greeting { font-size: clamp(25px, 3.5vw, 54px); font-weight: 750; letter-spacing: -.8px; text-shadow: 0 3px 16px rgba(0,0,0,.65); margin-bottom: clamp(4px, 1vw, 16px); }
+.welcome-clock { display: block; font-size: clamp(104px, 17vw, 270px); line-height: .95; font-weight: 800; letter-spacing: -.065em; font-variant-numeric: tabular-nums; text-shadow: 0 6px 34px rgba(0,0,0,.48); }
+.welcome-footer { align-items: flex-end; }
+.welcome-location { display: inline-flex; align-items: center; gap: 10px; font-size: clamp(15px, 1.65vw, 25px); font-weight: 750; letter-spacing: .035em; text-shadow: 0 2px 10px rgba(0,0,0,.65); white-space: nowrap; }
+.welcome-location svg { width: clamp(21px, 2.1vw, 31px); height: clamp(21px, 2.1vw, 31px); flex: 0 0 auto; }
+#start-button { min-width: clamp(190px, 25vw, 360px); min-height: clamp(62px, 7vw, 96px); display: inline-flex; align-items: center; justify-content: center; gap: 16px; padding: 14px 34px; border: 2px solid rgba(87, 205, 255, .95); border-radius: 25px; color: #fff; background: linear-gradient(180deg, rgba(5, 36, 91, .92), rgba(1, 13, 43, .96)); box-shadow: 0 0 0 1px rgba(255,255,255,.18) inset, 0 0 22px rgba(0,154,255,.75), 0 8px 28px rgba(0,0,0,.35); font: inherit; font-size: clamp(22px, 2.7vw, 39px); font-weight: 800; cursor: pointer; transition: transform .2s ease, box-shadow .2s ease, background .2s ease; }
+#start-button svg { width: clamp(23px, 2.5vw, 36px); height: clamp(23px, 2.5vw, 36px); }
+#start-button:hover { transform: translateY(-2px); box-shadow: 0 0 0 1px rgba(255,255,255,.25) inset, 0 0 30px rgba(0,174,255,.95), 0 10px 30px rgba(0,0,0,.4); }
+#start-button:active { transform: scale(.98); }
+#start-button:focus-visible { outline: 3px solid #fff; outline-offset: 5px; }
 
-
-.start-icon {
-
-    width: 100px;
-
-    height: 100px;
-
-    margin:
-        0 auto 30px;
-
-    display: flex;
-
-    align-items: center;
-
-    justify-content: center;
-
-    border:
-        3px solid white;
-
-    border-radius: 50%;
-
-    font-size: 40px;
-
+@media (max-aspect-ratio: 4/3) {
+    #start-screen { padding: 28px 30px 32px; }
+    .welcome-clock { font-size: clamp(100px, 20vw, 220px); }
 }
-
-
-.start-content h1 {
-
-    font-size:
-        clamp(
-            35px,
-            7vw,
-            70px
-        );
-
-    margin-bottom: 15px;
-
+@media (max-width: 700px) {
+    #start-screen { padding: 22px 20px 26px; }
+    .welcome-header { align-items: flex-start; }
+    .brand { font-size: 25px; gap: 7px; }
+    .brand-symbol { width: 38px; height: 38px; }
+    .welcome-date { padding: 9px 12px; font-size: 12px; white-space: normal; text-align: right; }
+    .welcome-center { padding-bottom: 22px; }
+    .welcome-greeting { font-size: clamp(22px, 5vw, 34px); }
+    .welcome-clock { font-size: clamp(88px, 22vw, 150px); }
+    .welcome-footer { align-items: center; flex-direction: column; gap: 22px; }
+    .welcome-location { font-size: 15px; }
+    #start-button { min-width: 210px; min-height: 60px; font-size: 23px; border-radius: 17px; }
 }
-
-
-.start-content p {
-
-    font-size:
-        clamp(
-            20px,
-            4vw,
-            32px
-        );
-
-    margin-bottom: 35px;
-
-}
-
-
-#start-button {
-
-    border: none;
-
-    padding:
-        20px 40px;
-
-    border-radius: 8px;
-
-    background: white;
-
-    color: #111;
-
-    font-size: 20px;
-
-    font-weight: bold;
-
-    cursor: pointer;
-
-}
-
-
-#start-button:active {
-
-    transform:
-        scale(0.97);
-
-}
-
-
-.start-content small {
-
-    display: block;
-
-    margin-top: 25px;
-
-    font-size: 14px;
-
-    opacity: 0.6;
-
-    line-height: 1.5;
-
-}
-
+@media (prefers-reduced-motion: reduce) { #start-button { transition: none; } }
 
 /* ========================================
    PLAYER
@@ -651,6 +558,33 @@ body {
    PUBLICIDADE
    ======================================== */
 
+.advertisement-image-slide {
+    isolation: isolate;
+    overflow: hidden;
+    background: #000;
+}
+
+.advertisement-backdrop {
+    position: absolute;
+    inset: -24px;
+    z-index: -1;
+    width: calc(100% + 48px);
+    height: calc(100% + 48px);
+    object-fit: cover;
+    object-position: center;
+    filter: blur(24px) brightness(.65);
+}
+
+.advertisement-image {
+    position: relative;
+    z-index: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center;
+}
+
 .advertisement-slide {
 
     background:
@@ -769,194 +703,234 @@ body {
     }
 
 }
-/* =========================================================
-   MEDIA MVP — CLIMA / PREVISÃO 7 DIAS
-   ========================================================= */
 
-.weather-slide {
-    overflow: hidden;
+/* ========================================
+   MEDIA MVP — IDENTIDADE NOS SLIDES
+   ======================================== */
+.media-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: #fff;
+    font-size: clamp(15px, 1.25vw, 22px);
+    line-height: 1;
+    font-weight: 800;
+    letter-spacing: -.6px;
+    white-space: nowrap;
 }
+.media-brand svg { width: clamp(25px, 2.1vw, 36px); height: clamp(25px, 2.1vw, 36px); flex: 0 0 auto; }
+.media-brand-accent { color: #18baff; }
+.news-header .media-brand { color: #102b53; }
+.news-header { gap: 18px; }
+.news-header .label { margin-left: auto; }
+.media-brand-ad {
+    position: absolute;
+    top: clamp(10px, 1.2vw, 20px);
+    right: clamp(12px, 1.5vw, 24px);
+    z-index: 2;
+    opacity: .58;
+    padding: 5px 8px;
+    border-radius: 8px;
+    background: rgba(5, 18, 38, .42);
+    font-size: clamp(10px, .8vw, 14px);
+}
+.media-brand-ad svg { width: clamp(17px, 1.25vw, 22px); height: clamp(17px, 1.25vw, 22px); }
 
-.weather-container {
+/* ========================================
+   CLIMA — 60% PAINEL + 2 ANÚNCIOS DE 20%
+   Layout proporcional ao display horizontal.
+   ======================================== */
+.weather-slide {
+    display: grid;
+    grid-template-columns: 40% 60%;
+    align-items: stretch;
+    justify-content: stretch;
+    padding: 0;
+    overflow: hidden;
+    color: #f7fbff;
+    background: #071b38;
+}
+.weather-ad-column {
+    min-width: 0;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: 1fr 1fr;
+    gap: 3px;
+    padding: 3px;
+    background: #06152c;
+}
+.weather-ad-slot {
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0b1d35;
+}
+.weather-ad-slot img {
+    display: block;
     width: 100%;
     height: 100%;
-    box-sizing: border-box;
-    padding: 4vh 4vw 3vh;
+    max-width: 100%;
+    max-height: 100%;
+    /* Preserva a arte inteira: não corta textos, QR Codes ou logotipos. */
+    object-fit: contain;
+    object-position: center;
+}
+.weather-ad-slot.is-empty { background: linear-gradient(145deg, #122c4b, #081a32); }
+.weather-dashboard {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     justify-content: center;
+    gap: clamp(12px, 2vh, 26px);
+    padding: clamp(22px, 3.2vw, 54px) clamp(22px, 3.1vw, 52px);
+    overflow: hidden;
+    isolation: isolate;
+    background:
+        radial-gradient(ellipse at 85% 12%, rgba(24, 186, 255, .19), transparent 38%),
+        linear-gradient(135deg, #102f58 0%, #0a2142 52%, #07172f 100%);
 }
-
-.weather-header {
+.weather-dashboard::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    width: 42vw;
+    height: 42vw;
+    right: -22vw;
+    bottom: -30vw;
+    border: 1px solid rgba(106, 202, 255, .13);
+    border-radius: 50%;
+    box-shadow: 0 0 0 35px rgba(106, 202, 255, .025), 0 0 0 75px rgba(106, 202, 255, .02);
+}
+.weather-dashboard-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 24px;
-    margin-bottom: 2vh;
+    gap: 18px;
 }
-
-.weather-location {
-    font-size: clamp(20px, 3vw, 42px);
-    font-weight: 700;
+.weather-eyebrow {
+    display: block;
+    margin-bottom: 7px;
+    color: #8edcff;
+    font-size: clamp(11px, 1vw, 16px);
+    font-weight: 800;
+    letter-spacing: .16em;
 }
-
-.weather-title {
-    text-align: center;
-    font-size: clamp(18px, 2.4vw, 34px);
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    margin-bottom: 3vh;
+.weather-dashboard-header h1 {
+    color: #fff;
+    font-size: clamp(27px, 3.1vw, 48px);
+    line-height: 1.05;
+    font-weight: 800;
+    letter-spacing: -.04em;
 }
-
+.weather-dashboard-header h1 span { color: #9cc9e8; font-weight: 500; }
+.media-brand-weather { opacity: .88; }
+.weather-panel-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    color: #fff;
+    font-size: clamp(17px, 1.65vw, 26px);
+    font-weight: 750;
+}
+.weather-live-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: #b7cde0;
+    font-size: clamp(10px, .9vw, 14px);
+    font-weight: 600;
+}
+.weather-live-indicator i {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #4de0b1;
+    box-shadow: 0 0 10px rgba(77, 224, 177, .65);
+}
 .weather-forecast {
     width: 100%;
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: 1vw;
+    gap: clamp(5px, .7vw, 12px);
     align-items: stretch;
 }
-
 .weather-day {
     min-width: 0;
-    padding: 2vh 0.7vw;
-    border-radius: 16px;
-    background: rgba(255, 255, 255, 0.08);
+    min-height: clamp(175px, 24vh, 270px);
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
+    gap: clamp(7px, 1.2vh, 14px);
+    padding: clamp(10px, 1.1vw, 18px) clamp(5px, .55vw, 9px);
+    border: 1px solid rgba(197, 226, 250, .18);
+    border-radius: clamp(12px, 1.2vw, 19px);
+    background: linear-gradient(180deg, rgba(255,255,255,.105), rgba(255,255,255,.045));
+    box-shadow: 0 8px 22px rgba(0,0,0,.12);
     text-align: center;
 }
-
-.weather-day-name {
-    font-size: clamp(15px, 2vw, 28px);
-    font-weight: 800;
-    text-transform: uppercase;
-}
-
-.weather-day-date {
-    margin-top: 0.5vh;
-    font-size: clamp(11px, 1.3vw, 18px);
-    opacity: 0.7;
-}
-
-.weather-day-icon {
-    margin: 1.8vh 0 1vh;
-    font-size: clamp(32px, 4vw, 64px);
-    line-height: 1;
-}
-
+.weather-day-heading { display: flex; flex-direction: column; gap: 4px; }
+.weather-day-heading strong { color: #fff; font-size: clamp(13px, 1.15vw, 18px); font-weight: 800; }
+.weather-day-heading span { color: #b6cce0; font-size: clamp(10px, .85vw, 13px); }
+.weather-day-icon { font-size: clamp(27px, 3.2vw, 48px); line-height: 1.15; }
 .weather-day-condition {
-    min-height: 2.5em;
-    font-size: clamp(10px, 1.2vw, 17px);
-    line-height: 1.25;
-    opacity: 0.85;
+    min-height: 2.4em;
     display: flex;
     align-items: center;
     justify-content: center;
+    color: #d6e6f4;
+    font-size: clamp(9px, .78vw, 12px);
+    line-height: 1.2;
+    font-weight: 600;
 }
-
-.weather-day-temp {
-    margin-top: 1.5vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.3vh;
-}
-
-.weather-day-temp strong {
-    font-size: clamp(22px, 3vw, 42px);
-}
-
-.weather-day-temp span {
-    font-size: clamp(15px, 2vw, 28px);
-    opacity: 0.65;
-}
-
+.weather-day-temp { display: flex; align-items: baseline; justify-content: center; gap: clamp(5px, .6vw, 9px); white-space: nowrap; }
+.weather-day-temp strong { color: #fff; font-size: clamp(19px, 1.85vw, 29px); font-weight: 800; }
+.weather-day-temp span { color: #a9bfd3; font-size: clamp(14px, 1.25vw, 19px); font-weight: 600; }
 .weather-updated {
-    margin-top: 2.5vh;
-    text-align: center;
-    font-size: clamp(11px, 1.3vw, 18px);
-    opacity: 0.6;
+    color: #b3c9dd;
+    font-size: clamp(10px, .9vw, 14px);
+    font-weight: 500;
+    text-align: right;
 }
-
 .weather-empty {
     grid-column: 1 / -1;
+    padding: 35px 15px;
+    color: #e7f2fb;
+    font-size: clamp(16px, 1.5vw, 24px);
     text-align: center;
-    padding: 8vh 2vw;
-    font-size: clamp(18px, 2.5vw, 34px);
 }
 
 @media (max-width: 900px) {
-
-    .weather-container {
-        padding-left: 3vw;
-        padding-right: 3vw;
-    }
-
-    .weather-forecast {
-        gap: 0.6vw;
-    }
-
-    .weather-day {
-        padding-left: 0.4vw;
-        padding-right: 0.4vw;
-        border-radius: 10px;
-    }
-
+    .weather-dashboard { padding: 18px; gap: 12px; }
+    .weather-day { min-height: 160px; padding: 8px 3px; }
+    .weather-day-condition { font-size: 9px; }
+    .weather-day-temp { gap: 4px; }
 }
-
-@media (orientation: portrait) {
-
-    .weather-container {
-        padding: 3vh 2vw;
-    }
-
-    .weather-forecast {
-        gap: 0.5vw;
-    }
-
-    .weather-day-condition {
-        display: none;
-    }
-
-    .weather-day-icon {
-        margin-top: 1vh;
-    }
-
+@media (max-height: 650px) {
+    .weather-dashboard { gap: 10px; padding-top: 14px; padding-bottom: 14px; }
+    .weather-day { min-height: 145px; gap: 5px; }
+    .weather-day-icon { font-size: clamp(24px, 2.5vw, 36px); }
 }
-.weather-header {
-    width: 100%;
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    margin-bottom: 2vh;
-}
-
-.weather-header .label {
-    margin-left: 0;
-    text-align: left;
-}
-
-.weather-location {
-    text-align: right;
+@media (prefers-reduced-motion: reduce) {
+    .slide { transition: none; }
 }
 
 /* ========================================
-   PUBLICIDADE — IMAGEM
+   NOTÍCIAS — EDITORIAL PREMIUM
    ======================================== */
-
-.advertisement-image-slide {
-    width: 100%;
-    height: 100%;
-    padding: 0;
-    overflow: hidden;
-    background: #000;
-}
-
-.advertisement-image {
-    width: 100%;
-    height: 100%;
-    display: block;
-    object-fit: cover;
-}
+.news-slide { padding: clamp(22px, 3.2vw, 54px); background: linear-gradient(135deg, #f7f9fc 0%, #eaf0f6 100%); color: #10233d; }
+.news-wrapper { width: 100%; max-width: none; max-height: none; height: 100%; justify-content: center; gap: clamp(18px, 2.5vh, 30px); }
+.news-header { margin-bottom: 0; min-height: 38px; }
+.news-header .label { margin-left: 0; color: #0879b8; font-size: clamp(12px, 1vw, 16px); letter-spacing: .17em; opacity: 1; }
+.news-counter { color: #53677d; font-size: clamp(12px, .95vw, 15px); opacity: 1; }
+.news-layout { grid-template-columns: minmax(0, 1.08fr) minmax(0, .92fr); gap: clamp(24px, 3.2vw, 54px); }
+.news-image { height: min(66vh, 700px); border-radius: clamp(15px, 1.5vw, 24px); background: #d7e1eb; box-shadow: 0 18px 44px rgba(20, 45, 75, .15); }
+.news-info h1 { margin: 0 0 clamp(16px, 2.3vh, 28px); color: #10233d; font-size: clamp(30px, 3.25vw, 58px); line-height: 1.08; letter-spacing: -.035em; font-weight: 800; }
+.news-description { color: #43566c; font-size: clamp(18px, 1.65vw, 27px); line-height: 1.42; max-width: 780px; -webkit-line-clamp: 4; }
+.news-meta { gap: 9px; margin-top: clamp(22px, 3vh, 38px); color: #52677e; font-size: clamp(13px, 1vw, 16px); font-weight: 600; }
+.news-meta span:last-child { color: #0879b8; font-weight: 800; }
+@media (max-width: 800px) { .news-slide { padding: 18px; } .news-layout { grid-template-columns: minmax(0, 1fr); gap: 18px; } .news-image { height: 38vh; } .news-info h1 { font-size: clamp(25px, 5vw, 36px); } .news-description { font-size: clamp(16px, 3vw, 20px); } .news-meta { margin-top: 16px; } }
