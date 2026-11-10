@@ -1,4 +1,4 @@
-const APP_VERSION = "2026-11-03-3";
+const APP_VERSION = "2026-11-10-1";
 
 const CACHE_NAME = `media-player-${APP_VERSION}`;
 
@@ -7,7 +7,8 @@ const FILES_TO_CACHE = [
     "./index.html",
     "./style.css",
     "./app.js",
-    "./manifest.json"
+    "./manifest.json",
+    "./assets/images/media-mvp-background.png"
 ];
 
 
