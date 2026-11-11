@@ -1966,3 +1966,1284 @@ startWeatherUpdater();
 console.log(
     "MVP aguardando início."
 );
+
+
+// ============================================================
+// MEDIAMVP — ANALYTICS LOCAL
+// ============================================================
+// Integração adicionada sobre o player existente.
+// Não altera a lógica de notícias, clima, playlist, anúncios,
+// Wake Lock ou Fullscreen.
+//
+// Storage:
+//     mediamvp_analytics
+//
+// O namespace window.mediaMVP.analytics também é exposto para
+// diagnóstico e compatibilidade com o painel administrativo.
+// ============================================================
+
+(function initMediaMVPAnalytics() {
+
+    "use strict";
+
+    const STORAGE_KEY = "mediamvp_analytics";
+    const HEARTBEAT_MS = 60 * 1000;
+    const POLL_MS = 250;
+    const MAX_SESSIONS = 100;
+    const MAX_EVENTS = 2000;
+
+    let session = null;
+    let activeSlideId = null;
+    let activeSlideStartedAt = null;
+    let paused = false;
+    let heartbeatTimer = null;
+    let pollTimer = null;
+
+    function now() {
+        return Date.now();
+    }
+
+    function iso() {
+        return new Date().toISOString();
+    }
+
+    function id(prefix) {
+        return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    }
+
+    function emptyData() {
+        return {
+            totalActiveTime: 0,
+            sessions: [],
+            slides: [],
+            advertisements: {},
+            events: [],
+            lastActivity: null
+        };
+    }
+
+    function load() {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+
+            if (!raw) {
+                return emptyData();
+            }
+
+            const data = JSON.parse(raw);
+
+            return {
+                totalActiveTime:
+                    Number(data.totalActiveTime) || 0,
+
+                sessions:
+                    Array.isArray(data.sessions)
+                        ? data.sessions
+                        : [],
+
+                slides:
+                    Array.isArray(data.slides)
+                        ? data.slides
+                        : [],
+
+                advertisements:
+                    data.advertisements &&
+                    typeof data.advertisements === "object"
+                        ? data.advertisements
+                        : {},
+
+                events:
+                    Array.isArray(data.events)
+                        ? data.events
+                        : [],
+
+                lastActivity:
+                    data.lastActivity || null
+            };
+        } catch (error) {
+            console.warn(
+                "[MediaMVP Analytics] Falha ao ler dados:",
+                error
+            );
+
+            return emptyData();
+        }
+    }
+
+    function save(data) {
+        try {
+            data.lastActivity = iso();
+
+            if (
+                data.sessions.length >
+                MAX_SESSIONS
+            ) {
+                data.sessions =
+                    data.sessions.slice(
+                        -MAX_SESSIONS
+                    );
+            }
+
+            if (
+                data.events.length >
+                MAX_EVENTS
+            ) {
+                data.events =
+                    data.events.slice(
+                        -MAX_EVENTS
+                    );
+            }
+
+            localStorage.setItem(
+                STORAGE_KEY,
+                JSON.stringify(data)
+            );
+        } catch (error) {
+            console.warn(
+                "[MediaMVP Analytics] Falha ao salvar dados:",
+                error
+            );
+        }
+    }
+
+    function addEvent(
+        type,
+        payload = {}
+    ) {
+        const data = load();
+
+        data.events.push({
+            id: id("evt"),
+            type,
+            timestamp: iso(),
+            sessionId:
+                session?.id || null,
+            ...payload
+        });
+
+        save(data);
+    }
+
+    function getDevice() {
+        return /Android/i.test(
+            navigator.userAgent || ""
+        )
+            ? "Tablet Android"
+            : "Navegador";
+    }
+
+    function getSlideId(
+        slide,
+        index
+    ) {
+        if (!slide) {
+            return `slide-${index}`;
+        }
+
+        if (
+            slide.dataset.analyticsId
+        ) {
+            return slide.dataset.analyticsId;
+        }
+
+        if (
+            slide.classList.contains(
+                "weather-slide"
+            )
+        ) {
+            slide.dataset.analyticsId =
+                "weather";
+
+            return "weather";
+        }
+
+        if (
+            slide.classList.contains(
+                "news-slide"
+            )
+        ) {
+            slide.dataset.analyticsId =
+                `news-${index}`;
+
+            return slide.dataset.analyticsId;
+        }
+
+        if (
+            slide.classList.contains(
+                "advertisement-image-slide"
+            )
+        ) {
+            const img =
+                slide.querySelector(
+                    ".advertisement-image"
+                );
+
+            const src =
+                img?.getAttribute("src") ||
+                "";
+
+            if (
+                src ===
+                ANNOUNCE_HERE_IMAGE
+            ) {
+                slide.dataset.analyticsId =
+                    "announce-here";
+
+                return "announce-here";
+            }
+
+            const filename =
+                src
+                    .split("/")
+                    .pop()
+                    .split("?")[0]
+                    .replace(
+                        /[^a-zA-Z0-9_-]/g,
+                        "-"
+                    );
+
+            slide.dataset.analyticsId =
+                filename
+                    ? `ad-${filename}`
+                    : `advertisement-${index}`;
+
+            return slide.dataset.analyticsId;
+        }
+
+        slide.dataset.analyticsId =
+            `slide-${index}`;
+
+        return slide.dataset.analyticsId;
+    }
+
+    function getSlideName(
+        slide,
+        index
+    ) {
+        if (!slide) {
+            return `Slide ${index + 1}`;
+        }
+
+        if (
+            slide.classList.contains(
+                "weather-slide"
+            )
+        ) {
+            return "Clima";
+        }
+
+        if (
+            slide.classList.contains(
+                "news-slide"
+            )
+        ) {
+            const title =
+                slide
+                    .querySelector(
+                        ".news-info h1"
+                    )
+                    ?.textContent
+                    ?.trim();
+
+            return title
+                ? `Notícia: ${title}`
+                : `Notícia ${index + 1}`;
+        }
+
+        if (
+            slide.classList.contains(
+                "advertisement-image-slide"
+            )
+        ) {
+            const img =
+                slide.querySelector(
+                    ".advertisement-image"
+                );
+
+            const src =
+                img?.getAttribute(
+                    "src"
+                ) || "";
+
+            if (
+                src ===
+                ANNOUNCE_HERE_IMAGE
+            ) {
+                return "Anuncie Aqui";
+            }
+
+            return (
+                src
+                    .split("/")
+                    .pop()
+                    .split("?")[0] ||
+                `Publicidade ${index + 1}`
+            );
+        }
+
+        return (
+            slide.textContent
+                ?.trim()
+                .slice(0, 80) ||
+            `Slide ${index + 1}`
+        );
+    }
+
+    function getAdvertisements(
+        slide
+    ) {
+        if (!slide) {
+            return [];
+        }
+
+        const advertisements = [];
+
+        /*
+         * Publicidade comercial normal.
+         */
+        if (
+            slide.classList.contains(
+                "advertisement-image-slide"
+            )
+        ) {
+            const img =
+                slide.querySelector(
+                    ".advertisement-image"
+                );
+
+            const src =
+                img?.getAttribute(
+                    "src"
+                ) || "";
+
+            /*
+             * "Anuncie Aqui" é comunicação
+             * própria do MediaMVP e não deve
+             * poluir as métricas comerciais.
+             */
+            if (
+                src &&
+                src !==
+                    ANNOUNCE_HERE_IMAGE
+            ) {
+                const filename =
+                    src
+                        .split("/")
+                        .pop()
+                        .split("?")[0]
+                        .replace(
+                            /[^a-zA-Z0-9_-]/g,
+                            "-"
+                        );
+
+                advertisements.push({
+                    id:
+                        filename
+                            ? `ad-${filename}`
+                            : "advertisement",
+
+                    name:
+                        src
+                            .split("/")
+                            .pop()
+                            .split("?")[0] ||
+                        "Publicidade",
+
+                    image:
+                        src
+                });
+            }
+        }
+
+        /*
+         * As duas peças do clima ficam
+         * visíveis ao mesmo tempo.
+         */
+        if (
+            slide.classList.contains(
+                "weather-slide"
+            )
+        ) {
+            WEATHER_ADVERTISEMENTS.forEach(
+                (
+                    src,
+                    index
+                ) => {
+                    advertisements.push({
+                        id:
+                            `weather-ad-${index + 1}`,
+
+                        name:
+                            src
+                                .split("/")
+                                .pop()
+                                .split("?")[0] ||
+                            `Publicidade clima ${index + 1}`,
+
+                        image:
+                            src
+                    });
+                }
+            );
+        }
+
+        return advertisements;
+    }
+
+    function ensureSlideRecord(
+        data,
+        slide,
+        index
+    ) {
+        const slideId =
+            getSlideId(
+                slide,
+                index
+            );
+
+        let record =
+            data.slides.find(
+                item =>
+                    item.id ===
+                    slideId
+            );
+
+        if (!record) {
+            record = {
+                id:
+                    slideId,
+
+                name:
+                    getSlideName(
+                        slide,
+                        index
+                    ),
+
+                views:
+                    0,
+
+                totalDisplayTime:
+                    0,
+
+                lastView:
+                    null
+            };
+
+            data.slides.push(
+                record
+            );
+        }
+
+        return record;
+    }
+
+    function registerSlideView(
+        slide,
+        index
+    ) {
+        const data = load();
+
+        const record =
+            ensureSlideRecord(
+                data,
+                slide,
+                index
+            );
+
+        record.views += 1;
+        record.lastView =
+            iso();
+
+        save(data);
+
+        addEvent(
+            "slide_view",
+            {
+                slideId:
+                    record.id,
+
+                slideName:
+                    record.name
+            }
+        );
+
+        getAdvertisements(
+            slide
+        ).forEach(
+            registerAdvertisementImpression
+        );
+    }
+
+    function registerAdvertisementImpression(
+        advertisement
+    ) {
+        const data = load();
+
+        if (
+            !data.advertisements[
+                advertisement.id
+            ]
+        ) {
+            data.advertisements[
+                advertisement.id
+            ] = {
+                id:
+                    advertisement.id,
+
+                name:
+                    advertisement.name,
+
+                image:
+                    advertisement.image,
+
+                impressions:
+                    0,
+
+                displayTime:
+                    0,
+
+                lastDisplay:
+                    null
+            };
+        }
+
+        const record =
+            data.advertisements[
+                advertisement.id
+            ];
+
+        record.impressions += 1;
+        record.lastDisplay =
+            iso();
+
+        save(data);
+
+        addEvent(
+            "advertisement_impression",
+            {
+                advertisementId:
+                    advertisement.id,
+
+                advertisementName:
+                    advertisement.name
+            }
+        );
+    }
+
+    function addDisplayTime(
+        slide,
+        seconds
+    ) {
+        if (
+            !slide ||
+            seconds <= 0
+        ) {
+            return;
+        }
+
+        const data = load();
+
+        const record =
+            ensureSlideRecord(
+                data,
+                slide,
+                0
+            );
+
+        record.totalDisplayTime +=
+            seconds;
+
+        getAdvertisements(
+            slide
+        ).forEach(
+            advertisement => {
+                if (
+                    !data.advertisements[
+                        advertisement.id
+                    ]
+                ) {
+                    data.advertisements[
+                        advertisement.id
+                    ] = {
+                        id:
+                            advertisement.id,
+
+                        name:
+                            advertisement.name,
+
+                        image:
+                            advertisement.image,
+
+                        impressions:
+                            0,
+
+                        displayTime:
+                            0,
+
+                        lastDisplay:
+                            null
+                    };
+                }
+
+                data.advertisements[
+                    advertisement.id
+                ].displayTime +=
+                    seconds;
+            }
+        );
+
+        save(data);
+    }
+
+    function getActiveSlide() {
+        if (
+            !player
+        ) {
+            return null;
+        }
+
+        const active =
+            player.querySelector(
+                ".slide.active"
+            );
+
+        if (!active) {
+            return null;
+        }
+
+        const index =
+            slides.indexOf(
+                active
+            );
+
+        return {
+            slide:
+                active,
+
+            index:
+                index >= 0
+                    ? index
+                    : 0
+        };
+    }
+
+    function finishCurrentSlide() {
+        if (
+            !activeSlideId ||
+            !activeSlideStartedAt
+        ) {
+            return;
+        }
+
+        const active =
+            getActiveSlide();
+
+        if (
+            active &&
+            getSlideId(
+                active.slide,
+                active.index
+            ) ===
+                activeSlideId
+        ) {
+            const seconds =
+                Math.max(
+                    0,
+                    (
+                        now() -
+                        activeSlideStartedAt
+                    ) / 1000
+                );
+
+            addDisplayTime(
+                active.slide,
+                seconds
+            );
+        }
+
+        activeSlideId =
+            null;
+
+        activeSlideStartedAt =
+            null;
+    }
+
+    function startTrackingActiveSlide() {
+        if (
+            !session ||
+            paused
+        ) {
+            return;
+        }
+
+        const active =
+            getActiveSlide();
+
+        if (!active) {
+            return;
+        }
+
+        const newId =
+            getSlideId(
+                active.slide,
+                active.index
+            );
+
+        /*
+         * Mesmo slide = não gerar
+         * nova impressão.
+         *
+         * Isso é importante quando
+         * renderPlaylist() reconstrói
+         * os elementos HTML.
+         */
+        if (
+            activeSlideId ===
+                newId &&
+            activeSlideStartedAt
+        ) {
+            return;
+        }
+
+        finishCurrentSlide();
+
+        activeSlideId =
+            newId;
+
+        activeSlideStartedAt =
+            now();
+
+        registerSlideView(
+            active.slide,
+            active.index
+        );
+    }
+
+    function accumulateSessionTime() {
+        if (
+            !session ||
+            !session.activeStartedAt
+        ) {
+            return;
+        }
+
+        const elapsed =
+            Math.max(
+                0,
+                (
+                    now() -
+                    session.activeStartedAt
+                ) / 1000
+            );
+
+        session.duration +=
+            elapsed;
+
+        session.activeStartedAt =
+            now();
+    }
+
+    function startSession() {
+        if (
+            session
+        ) {
+            return;
+        }
+
+        const data =
+            load();
+
+        session = {
+            id:
+                id("session"),
+
+            start:
+                iso(),
+
+            end:
+                null,
+
+            duration:
+                0,
+
+            slides:
+                0,
+
+            device:
+                getDevice(),
+
+            activeStartedAt:
+                now()
+        };
+
+        data.sessions.push({
+            id:
+                session.id,
+
+            start:
+                session.start,
+
+            end:
+                null,
+
+            duration:
+                0,
+
+            slides:
+                0,
+
+            device:
+                session.device
+        });
+
+        save(data);
+
+        paused =
+            false;
+
+        addEvent(
+            "session_start"
+        );
+
+        startHeartbeat();
+
+        setTimeout(
+            startTrackingActiveSlide,
+            100
+        );
+    }
+
+    function pauseSession(
+        reason
+    ) {
+        if (
+            !session ||
+            paused
+        ) {
+            return;
+        }
+
+        finishCurrentSlide();
+        accumulateSessionTime();
+
+        const data =
+            load();
+
+        const saved =
+            data.sessions.find(
+                item =>
+                    item.id ===
+                    session.id
+            );
+
+        if (saved) {
+            saved.duration =
+                session.duration;
+
+            saved.lastActivity =
+                iso();
+        }
+
+        save(data);
+
+        session.activeStartedAt =
+            null;
+
+        paused =
+            true;
+
+        addEvent(
+            "session_pause",
+            {
+                reason:
+                    reason ||
+                    "page_hidden"
+            }
+        );
+    }
+
+    function resumeSession() {
+        if (
+            !session ||
+            !paused
+        ) {
+            return;
+        }
+
+        session.activeStartedAt =
+            now();
+
+        paused =
+            false;
+
+        addEvent(
+            "session_resume"
+        );
+
+        setTimeout(
+            startTrackingActiveSlide,
+            100
+        );
+    }
+
+    function endSession(
+        reason
+    ) {
+        if (
+            !session
+        ) {
+            return;
+        }
+
+        finishCurrentSlide();
+
+        if (
+            !paused
+        ) {
+            accumulateSessionTime();
+        }
+
+        const data =
+            load();
+
+        const saved =
+            data.sessions.find(
+                item =>
+                    item.id ===
+                    session.id
+            );
+
+        if (saved) {
+            saved.end =
+                iso();
+
+            saved.duration =
+                session.duration;
+
+            saved.slides =
+                countSessionSlides(
+                    session.id,
+                    data
+                );
+
+            saved.endReason =
+                reason ||
+                "unknown";
+        }
+
+        data.totalActiveTime =
+            data.sessions.reduce(
+                (
+                    total,
+                    item
+                ) => {
+                    if (
+                        item.id ===
+                        session.id
+                    ) {
+                        return (
+                            total +
+                            session.duration
+                        );
+                    }
+
+                    return (
+                        total +
+                        (
+                            Number(
+                                item.duration
+                            ) || 0
+                        )
+                    );
+                },
+                0
+            );
+
+        save(data);
+
+        addEvent(
+            "session_end",
+            {
+                reason:
+                    reason ||
+                    "unknown",
+
+                duration:
+                    session.duration
+            }
+        );
+
+        stopHeartbeat();
+
+        session =
+            null;
+
+        activeSlideId =
+            null;
+
+        activeSlideStartedAt =
+            null;
+
+        paused =
+            false;
+    }
+
+    function countSessionSlides(
+        sessionId,
+        data
+    ) {
+        return data.events.filter(
+            event =>
+                event.sessionId ===
+                    sessionId &&
+                event.type ===
+                    "slide_view"
+        ).length;
+    }
+
+    function startHeartbeat() {
+        stopHeartbeat();
+
+        heartbeatTimer =
+            setInterval(
+                () => {
+                    if (
+                        !session ||
+                        paused ||
+                        document.hidden
+                    ) {
+                        return;
+                    }
+
+                    accumulateSessionTime();
+
+                    const data =
+                        load();
+
+                    const saved =
+                        data.sessions.find(
+                            item =>
+                                item.id ===
+                                session.id
+                        );
+
+                    if (saved) {
+                        saved.duration =
+                            session.duration;
+
+                        saved.lastActivity =
+                            iso();
+                    }
+
+                    /*
+                     * O total é recalculado a partir
+                     * das sessões já encerradas + a
+                     * sessão atual.
+                     */
+                    data.totalActiveTime =
+                        data.sessions.reduce(
+                            (
+                                total,
+                                item
+                            ) =>
+                                total +
+                                (
+                                    item.id ===
+                                    session.id
+                                        ? session.duration
+                                        : Number(
+                                            item.duration
+                                        ) || 0
+                                ),
+                            0
+                        );
+
+                    save(data);
+                },
+                HEARTBEAT_MS
+            );
+    }
+
+    function stopHeartbeat() {
+        if (
+            heartbeatTimer
+        ) {
+            clearInterval(
+                heartbeatTimer
+            );
+
+            heartbeatTimer =
+                null;
+        }
+    }
+
+    function poll() {
+        if (
+            typeof playerStarted !==
+            "undefined" &&
+            playerStarted
+        ) {
+            if (
+                !session
+            ) {
+                startSession();
+            }
+
+            if (
+                !paused &&
+                !document.hidden
+            ) {
+                startTrackingActiveSlide();
+            }
+        }
+
+        pollTimer =
+            setTimeout(
+                poll,
+                POLL_MS
+            );
+    }
+
+    function handleVisibility() {
+        if (
+            document.hidden
+        ) {
+            pauseSession(
+                "page_hidden"
+            );
+
+            return;
+        }
+
+        if (
+            typeof playerStarted !==
+                "undefined" &&
+            playerStarted
+        ) {
+            if (
+                session
+            ) {
+                resumeSession();
+            } else {
+                startSession();
+            }
+        }
+    }
+
+    function handlePageHide() {
+        endSession(
+            "page_unload"
+        );
+    }
+
+    /*
+     * Recupera uma sessão antiga que tenha
+     * ficado aberta por fechamento abrupto.
+     *
+     * Não inventamos tempo após o último
+     * heartbeat; encerramos no último
+     * instante registrado.
+     */
+    function recoverOpenSession() {
+        const data =
+            load();
+
+        let changed =
+            false;
+
+        data.sessions.forEach(
+            item => {
+                if (
+                    !item.end
+                ) {
+                    item.end =
+                        item.lastActivity ||
+                        item.start;
+
+                    item.duration =
+                        Number(
+                            item.duration
+                        ) || 0;
+
+                    item.endReason =
+                        "recovered";
+
+                    changed =
+                        true;
+                }
+            }
+        );
+
+        if (changed) {
+            data.totalActiveTime =
+                data.sessions.reduce(
+                    (
+                        total,
+                        item
+                    ) =>
+                        total +
+                        (
+                            Number(
+                                item.duration
+                            ) || 0
+                        ),
+                    0
+                );
+
+            save(data);
+        }
+    }
+
+    function exposeDebugApi() {
+        window.mediaMVP =
+            window.mediaMVP ||
+            {};
+
+        window.mediaMVP.analytics = {
+            getData:
+                () =>
+                    load(),
+
+            clear:
+                () => {
+                    localStorage.removeItem(
+                        STORAGE_KEY
+                    );
+                },
+
+            endSession:
+                () =>
+                    endSession(
+                        "manual"
+                    )
+        };
+    }
+
+    recoverOpenSession();
+    exposeDebugApi();
+
+    document.addEventListener(
+        "visibilitychange",
+        handleVisibility
+    );
+
+    window.addEventListener(
+        "pagehide",
+        handlePageHide
+    );
+
+    /*
+     * Começa a observar o player sem
+     * interferir no código existente.
+     */
+    pollTimer =
+        setTimeout(
+            poll,
+            POLL_MS
+        );
+
+    console.log(
+        "[MediaMVP Analytics] Analytics local inicializado."
+    );
+
+})();

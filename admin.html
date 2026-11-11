@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#111827">
+  <title>MediaMVP — Analytics</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <div class="admin-app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">M</div>
+        <div><strong>MediaMVP</strong><span>Admin</span></div>
+      </div>
+      <nav>
+        <button class="nav-item active" data-section="overview">Visão geral</button>
+        <button class="nav-item" data-section="ads">Anúncios</button>
+        <button class="nav-item" data-section="sessions">Sessões</button>
+      </nav>
+      <div class="sidebar-footer">Ambiente local<br><span id="storage-status">Verificando dados...</span></div>
+    </aside>
+
+    <main class="content">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">PAINEL ADMINISTRATIVO</p>
+          <h1 id="page-title">Visão geral</h1>
+          <p class="subtitle">Acompanhamento local do uso do MediaMVP.</p>
+        </div>
+        <div class="actions">
+          <select id="period-filter" aria-label="Período">
+            <option value="today">Hoje</option>
+            <option value="7d" selected>Últimos 7 dias</option>
+            <option value="30d">Últimos 30 dias</option>
+            <option value="all">Todo o período</option>
+          </select>
+          <button id="refresh-btn" class="button secondary">Atualizar</button>
+        </div>
+      </header>
+
+      <section id="overview" class="section active">
+        <div class="cards">
+          <article class="metric-card"><span>Tempo ativo</span><strong id="metric-active">0m</strong><small id="metric-active-detail">Nenhuma sessão registrada</small></article>
+          <article class="metric-card"><span>Sessões</span><strong id="metric-sessions">0</strong><small>Inícios do player</small></article>
+          <article class="metric-card"><span>Slides exibidos</span><strong id="metric-slides">0</strong><small>Todos os tipos de conteúdo</small></article>
+          <article class="metric-card highlight"><span>Impressões de anúncios</span><strong id="metric-impressions">0</strong><small id="metric-ads-detail">0 anúncios monitorados</small></article>
+        </div>
+
+        <div class="grid two">
+          <article class="panel">
+            <div class="panel-head"><div><h2>Uso do player</h2><p>Tempo ativo por dia.</p></div><span class="status-dot">● Dados locais</span></div>
+            <div id="usage-chart" class="usage-chart"></div>
+          </article>
+          <article class="panel">
+            <div class="panel-head"><div><h2>Anúncios</h2><p>Exibições registradas por anúncio.</p></div></div>
+            <div id="ad-ranking" class="ranking"></div>
+          </article>
+        </div>
+
+        <article class="panel recent-panel">
+          <div class="panel-head"><div><h2>Atividade recente</h2><p>Últimos eventos registrados pelo player.</p></div></div>
+          <div id="recent-events" class="events"></div>
+        </article>
+      </section>
+
+      <section id="ads" class="section">
+        <div class="section-intro"><h2>Desempenho dos anúncios</h2><p>Detalhamento das campanhas exibidas pelo player.</p></div>
+        <article class="panel"><div id="ads-table" class="table-wrap"></div></article>
+      </section>
+
+      <section id="sessions" class="section">
+        <div class="section-intro"><h2>Sessões do player</h2><p>Histórico de abertura e tempo ativo.</p></div>
+        <article class="panel"><div id="sessions-table" class="table-wrap"></div></article>
+      </section>
+
+      <footer class="footer"><span>MediaMVP Analytics</span><span>v0.1 • armazenamento local</span></footer>
+    </main>
+  </div>
+  <script src="admin.js"></script>
+</body>
+</html>

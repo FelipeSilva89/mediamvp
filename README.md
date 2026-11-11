@@ -4,7 +4,7 @@ PWA de sinalização digital (Digital Signage) para reprodução contínua em ta
 
 ## 1. Visão geral
 
-A aplicação é composta por um frontend estático, sem framework e sem etapa de build, e um backend serverless executado em Cloudflare Workers.
+A aplicação é composta por um frontend estático, sem framework e sem etapa de build, e um backend serverless executado em Cloudflare Workers. A tela inicial exibe a identidade MediaMVP, data, relógio e botão para iniciar o player.
 
 O frontend carrega notícias e previsão do tempo, monta e controla a playlist, exibe imagens publicitárias locais, tenta ativar tela cheia e Wake Lock após a interação do operador e armazena a previsão do tempo no `localStorage`.
 
@@ -39,7 +39,11 @@ Os caminhos atualmente configurados em `app.js` são:
 
 Para adicionar, remover ou trocar anúncios, atualize os caminhos no array `ADVERTISEMENTS` ou a constante `ANNOUNCE_HERE_IMAGE`, conforme o tipo de slide. Colocar um arquivo na pasta, por si só, não o inclui na playlist.
 
-A imagem recomendada para o formato de tela é 1920 × 1080 px (16:9).
+As artes principais são exibidas inteiras, sem distorção. Uma cópia ampliada e desfocada da própria arte preenche o espaço restante da tela, evitando bordas pretas sem cortar textos ou QR codes. Para melhor resultado em telas horizontais, use imagens de **1920 × 1080 px (16:9)**.
+
+### Tela inicial
+
+A tela inicial usa `assets/images/media-mvp-background.png` como imagem de fundo, com ajuste `cover`. Logo, data, relógio, localização e botão **Iniciar** aparecem sobre a imagem; o relógio e a data usam o horário local do dispositivo. O botão inicia a playlist e solicita tela cheia e Wake Lock quando disponíveis no navegador.
 
 ## 3. Arquivos do projeto
 
@@ -47,7 +51,7 @@ A imagem recomendada para o formato de tela é 1920 × 1080 px (16:9).
 - `app.js`: configurações, estado do player, carregamento de notícias e clima, montagem da playlist, renderização dos slides, timers, fullscreen e Wake Lock.
 - `style.css`: estilos da tela inicial, notícias, clima, publicidade e responsividade.
 - `worker.js`: backend Cloudflare Worker, integração com RSS/Meteoblue e proxy de imagens.
-- `sw.js`: service worker da PWA e estratégia de cache. **O arquivo não foi incluído no conjunto mais recente analisado; consulte o código publicado antes de alterar ou documentar detalhes específicos da estratégia de cache.**
+- `sw.js`: service worker da PWA e estratégia de cache Network First para arquivos da própria origem.
 - `manifest.json`: metadados da PWA. Atualmente não há ícones configurados.
 
 Não foi identificado `package.json`, processo de build ou suíte de testes automatizados nos arquivos analisados.
@@ -126,7 +130,7 @@ Para testar notícias e clima, o navegador precisa ter acesso à URL pública do
 
 O `sw.js` analisado utiliza estratégia **Network First** para arquivos da mesma origem:
 
-1. Durante a instalação, abre o cache identificado por `media-player-2026-10-30` e pré-carrega `./`, `index.html`, `style.css`, `app.js` e `manifest.json`.
+1. Durante a instalação, abre o cache identificado por `media-player-2026-11-10-1` e pré-carrega `./`, `index.html`, `style.css`, `app.js`, `manifest.json` e `assets/images/media-mvp-background.png`.
 2. Durante a ativação, remove os caches cujo nome seja diferente do cache atual e assume o controle das páginas abertas.
 3. Para requisições `GET` da própria origem, tenta buscar a versão da rede primeiro.
 4. Quando a busca de rede funciona, inicia a gravação de uma cópia no cache e devolve a resposta.
@@ -136,7 +140,7 @@ O `sw.js` analisado utiliza estratégia **Network First** para arquivos da mesma
 
 ### Atualização da versão em cache
 
-A versão atual está definida em `APP_VERSION` como `2026-10-30`. Ao publicar uma nova versão do frontend, altere esse valor para um identificador novo. Isso cria um novo nome de cache; na ativação, os caches antigos são removidos.
+A versão atual está definida em `APP_VERSION` como `2026-11-10-1`. Ao publicar uma nova versão do frontend, altere esse valor para um identificador novo. Isso cria um novo nome de cache; na ativação, os caches antigos são removidos.
 
 O `sw.js` chama `skipWaiting()` na instalação e `clients.claim()` na ativação. Ainda assim, uma página que já esteja aberta pode continuar executando o JavaScript carregado anteriormente até ser recarregada ou reaberta.
 
@@ -145,17 +149,13 @@ O `sw.js` chama `skipWaiting()` na instalação e `clients.claim()` na ativaçã
 - A resposta da rede é gravada no cache sem verificar `response.ok`; portanto, respostas HTTP de erro também podem ser armazenadas.
 - A gravação via `cache.put()` é iniciada, mas não é aguardada antes de devolver a resposta ao navegador.
 - No fallback offline, `caches.match(request)` procura a requisição nos caches disponíveis. Como a ativação apaga caches antigos, o fallback depende principalmente do cache da versão ativa.
-- O cache inicial contém os arquivos listados acima. Assets locais referenciados pelo CSS ou criados dinamicamente podem entrar no cache quando forem solicitados pela rede, mas não são pré-carregados nessa lista.
+- O cache inicial contém os arquivos listados acima. Outros assets locais, como imagens de publicidade, podem entrar no cache quando forem solicitados pela rede, mas não são pré-carregados nessa lista.
 
-Esses pontos descrevem o arquivo recebido; não foram feitas alterações no `sw.js`.
+O fundo da tela inicial foi incluído no pré-carregamento para que também possa ser exibido após uma visita anterior, inclusive quando o dispositivo estiver offline.
 
 ### Frontend
 
 Publique por HTTPS os arquivos estáticos do frontend e os assets referenciados. Inclua `sw.js` na publicação, mantendo o caminho esperado pelo registro em `index.html` (`./sw.js`). Depois de publicar, valide no dispositivo se o Service Worker ativo está usando a nova versão.
-
-### Worker
-
-Publique `worker.js` no Cloudflare Workers e configure `METEOBLUE_API_KEY` como secret. Se a URL do Worker mudar, atualize `NEWS_API_URL` em `app.js`.
 
 ### Worker
 
@@ -166,6 +166,7 @@ Publique `worker.js` no Cloudflare Workers e configure `METEOBLUE_API_KEY` como 
 - Alterações no contrato `forecast` devem ser refletidas no Worker (`handleWeather()`), no frontend (`loadWeather()` e `createWeatherSlide()`) e nesta documentação.
 - Alterações na ordem ou quantidade de slides devem ser feitas em `renderPlaylist()` e validadas junto com a duração por slide.
 - Alterações nas imagens de publicidade devem respeitar os caminhos configurados em `ADVERTISEMENTS` e `ANNOUNCE_HERE_IMAGE`.
+- Ao publicar uma nova versão do frontend, atualize `APP_VERSION` em `sw.js` para invalidar o cache anterior. Se o nome ou caminho do fundo da tela inicial mudar, atualize também a lista `FILES_TO_CACHE`.
 - Alterações nas fontes de imagem devem ser acompanhadas de revisão de `ALLOWED_IMAGE_HOSTS`; preservar a validação de domínio.
 - O parser RSS e os extratores de imagem usam expressões regulares. Mudanças no markup do G1 podem exigir ajustes em `parseRSS()`, `findArticleImage()` e helpers relacionados.
 - Não reduzir a proteção de frequência nem aumentar a frequência da Meteoblue sem avaliar o orçamento de créditos.
