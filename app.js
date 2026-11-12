@@ -74,6 +74,8 @@ let slideTimer = null;
 
 let wakeLock = null;
 
+let weatherAdObjectUrls = [];
+
 
 // ========================================
 // CONFIGURAÇÕES
@@ -96,10 +98,9 @@ const ADVERTISEMENTS = [
 const ADVERTISEMENT_DURATION = 10000;
 
 // Publicidades exclusivas do painel de clima (coluna esquerda).
-// Use peças verticais: recomendação 800 x 1200 px.
 const WEATHER_ADVERTISEMENTS = [
-    "assets/ads/clima-anuncio-1.jpg",
-    "assets/ads/clima-anuncio-2.jpg"
+    "assets/ads/clima-anuncio-1.png",
+    "assets/ads/clima-anuncio-2.png"
 ];
 
 const ANNOUNCE_HERE_IMAGE =
@@ -609,6 +610,8 @@ function getWeatherCondition(code) {
 
 function renderPlaylist() {
 
+    weatherAdObjectUrls.forEach((url) => URL.revokeObjectURL(url));
+    weatherAdObjectUrls = [];
     player.innerHTML = "";
 
 
@@ -1019,10 +1022,8 @@ function createWeatherSlide() {
         }
     }
 
-    const adMarkup = WEATHER_ADVERTISEMENTS.map((imagePath, index) => `
-        <div class="weather-ad-slot" data-ad-slot="${index + 1}">
-            <img src="${escapeHtml(imagePath)}" alt="Publicidade" loading="eager">
-        </div>
+    const adMarkup = WEATHER_ADVERTISEMENTS.map((_, index) => `
+        <div class="weather-ad-slot" data-ad-slot="${index + 1}"></div>
     `).join("");
 
     slide.innerHTML = `
@@ -1048,15 +1049,48 @@ function createWeatherSlide() {
         </section>
     `;
 
-    // Imagem ausente não exibe ícone quebrado nem conteúdo concorrente.
-    slide.querySelectorAll(".weather-ad-slot img").forEach((img) => {
-        img.addEventListener("error", () => {
-            img.parentElement.classList.add("is-empty");
-            img.remove();
-        }, { once: true });
+    slide.querySelectorAll(".weather-ad-slot").forEach((slot, index) => {
+        void loadWeatherAdvertisement(
+            slot,
+            WEATHER_ADVERTISEMENTS[index],
+            index + 1
+        );
     });
 
     return slide;
+}
+
+async function loadWeatherAdvertisement(slot, imagePath, number) {
+    try {
+        const response = await fetch(imagePath, { cache: "no-store" });
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const imageUrl = URL.createObjectURL(await response.blob());
+        if (!slot.isConnected) {
+            URL.revokeObjectURL(imageUrl);
+            return;
+        }
+
+        const image = document.createElement("img");
+        image.className = "weather-ad-image";
+        image.alt = `Publicidade ${number}`;
+        image.addEventListener("error", () => {
+            console.error(`Falha ao exibir publicidade ${number}:`, imagePath);
+            slot.classList.add("is-empty");
+            image.remove();
+            URL.revokeObjectURL(imageUrl);
+            weatherAdObjectUrls = weatherAdObjectUrls.filter((url) => url !== imageUrl);
+        }, { once: true });
+
+        weatherAdObjectUrls.push(imageUrl);
+        image.src = imageUrl;
+        slot.appendChild(image);
+    } catch (error) {
+        console.error(`Falha ao carregar publicidade ${number}:`, imagePath, error);
+        slot.classList.add("is-empty");
+    }
 }
 
 

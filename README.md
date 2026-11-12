@@ -39,7 +39,9 @@ Os caminhos atualmente configurados em `app.js` são:
 
 Para adicionar, remover ou trocar anúncios, atualize os caminhos no array `ADVERTISEMENTS` ou a constante `ANNOUNCE_HERE_IMAGE`, conforme o tipo de slide. Colocar um arquivo na pasta, por si só, não o inclui na playlist.
 
-As artes principais são exibidas inteiras, sem distorção. Uma cópia ampliada e desfocada da própria arte preenche o espaço restante da tela, evitando bordas pretas sem cortar textos ou QR codes. Para melhor resultado em telas horizontais, use imagens de **1920 × 1080 px (16:9)**.
+As artes principais de publicidade em tela cheia são exibidas inteiras, sem distorção. Uma cópia ampliada e desfocada preenche o espaço restante da tela. Para melhor resultado em telas horizontais, use imagens de **1920 × 1080 px (16:9)**.
+
+Os dois anúncios do slide de clima ocupam a coluna esquerda, empilhados verticalmente. Em uma tela 1920 × 1080, cada slot mede aproximadamente **762 × 536 px**; prepare cada arte nessa proporção horizontal para preencher o espaço sem corte. A dimensão exata varia com a área útil/resolução da tela. Esses dois arquivos são carregados com `fetch(..., { cache: "no-store" })` e não são pré-carregados pelo service worker.
 
 ### Tela inicial
 
@@ -126,21 +128,23 @@ Acesse `http://localhost:8000`.
 
 Para testar notícias e clima, o navegador precisa ter acesso à URL pública do Worker. Fullscreen e Wake Lock dependem do suporte do navegador e da interação do usuário.
 
+Abra o painel administrativo em `http://localhost:8000/admin.html`. O painel lê `mediamvp_analytics` do `localStorage` do navegador. Portanto, os dados aparecem somente se o player e o painel forem acessados no mesmo navegador, dispositivo e origem (protocolo, host e porta); analytics do domínio online não são compartilhados com `localhost`. O filtro **Ontem e hoje** considera os registros de eventos guardados pelo player.
+
 ## 7. Service Worker, cache e publicação
 
-O `sw.js` analisado utiliza estratégia **Network First** para arquivos da mesma origem:
+O `sw.js` utiliza estratégia **Network First** para arquivos da mesma origem:
 
-1. Durante a instalação, abre o cache identificado por `media-player-2026-11-10-1` e pré-carrega `./`, `index.html`, `style.css`, `app.js`, `manifest.json` e `assets/images/media-mvp-background.png`.
+1. Durante a instalação, abre o cache identificado por `media-player-2026-11-12-3` e pré-carrega `./`, `index.html`, `style.css`, `app.js`, `manifest.json` e `assets/images/media-mvp-background.png`.
 2. Durante a ativação, remove os caches cujo nome seja diferente do cache atual e assume o controle das páginas abertas.
 3. Para requisições `GET` da própria origem, tenta buscar a versão da rede primeiro.
 4. Quando a busca de rede funciona, inicia a gravação de uma cópia no cache e devolve a resposta.
 5. Se a rede falhar, tenta responder com uma cópia existente no cache.
 6. Para requisições externas, incluindo Worker e APIs, encaminha diretamente para `fetch()`; essas respostas não são armazenadas por esse Service Worker.
-7. Requisições que não sejam `GET` não são interceptadas.
+7. Requisições que não sejam `GET`, ou que usem `cache: "no-store"`, não são interceptadas.
 
 ### Atualização da versão em cache
 
-A versão atual está definida em `APP_VERSION` como `2026-11-10-1`. Ao publicar uma nova versão do frontend, altere esse valor para um identificador novo. Isso cria um novo nome de cache; na ativação, os caches antigos são removidos.
+A versão atual está definida em `APP_VERSION` como `2026-11-12-3`. Ao publicar uma nova versão do frontend, altere esse valor para um identificador novo. Isso cria um novo nome de cache; na ativação, os caches antigos são removidos.
 
 O `sw.js` chama `skipWaiting()` na instalação e `clients.claim()` na ativação. Ainda assim, uma página que já esteja aberta pode continuar executando o JavaScript carregado anteriormente até ser recarregada ou reaberta.
 
@@ -149,7 +153,7 @@ O `sw.js` chama `skipWaiting()` na instalação e `clients.claim()` na ativaçã
 - A resposta da rede é gravada no cache sem verificar `response.ok`; portanto, respostas HTTP de erro também podem ser armazenadas.
 - A gravação via `cache.put()` é iniciada, mas não é aguardada antes de devolver a resposta ao navegador.
 - No fallback offline, `caches.match(request)` procura a requisição nos caches disponíveis. Como a ativação apaga caches antigos, o fallback depende principalmente do cache da versão ativa.
-- O cache inicial contém os arquivos listados acima. Outros assets locais, como imagens de publicidade, podem entrar no cache quando forem solicitados pela rede, mas não são pré-carregados nessa lista.
+- O cache inicial contém os arquivos listados acima. Outros assets locais podem entrar no cache quando forem solicitados pela rede, exceto requisições feitas com `cache: "no-store"`, como as duas imagens de publicidade do clima.
 
 O fundo da tela inicial foi incluído no pré-carregamento para que também possa ser exibido após uma visita anterior, inclusive quando o dispositivo estiver offline.
 

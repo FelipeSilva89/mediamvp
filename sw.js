@@ -1,4 +1,4 @@
-const APP_VERSION = "2026-11-10-1";
+const APP_VERSION = "2026-11-12-3";
 
 const CACHE_NAME = `media-player-${APP_VERSION}`;
 
@@ -91,7 +91,8 @@ self.addEventListener(
          * Apenas requisições GET
          */
         if (
-            request.method !== "GET"
+            request.method !== "GET" ||
+            request.cache === "no-store"
         ) {
 
             return;

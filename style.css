@@ -768,15 +768,13 @@ body { background: #061b45; }
     justify-content: center;
     background: #0b1d35;
 }
-.weather-ad-slot img {
+.weather-ad-slot .weather-ad-image {
     display: block;
     width: 100%;
     height: 100%;
     max-width: 100%;
     max-height: 100%;
-    /* Preserva a arte inteira: não corta textos, QR Codes ou logotipos. */
-    object-fit: contain;
-    object-position: center;
+    object-fit: fill;
 }
 .weather-ad-slot.is-empty { background: linear-gradient(145deg, #122c4b, #081a32); }
 .weather-dashboard {
