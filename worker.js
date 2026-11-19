@@ -30,9 +30,30 @@ export default {
 
         if (request.method === "OPTIONS") {
             return new Response(null, {
-                headers: CORS_HEADERS
+                status: 204,
+                headers: {
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type"
+                }
             });
         }
+
+        // ========================================
+        // ANALYTICS
+        // ========================================
+        
+        if (
+            url.pathname === "/analytics" &&
+            request.method === "POST"
+        ) {
+            return handleAnalytics(request, env);
+        }
+
+        // ========================================
+        // BLOQUEAR OUTROS MÉTODOS
+        // ========================================
+
 
         if (request.method !== "GET") {
             return jsonResponse(
@@ -43,6 +64,7 @@ export default {
                 405
             );
         }
+
 
         /*
          * Proxy de imagem
@@ -1198,24 +1220,16 @@ export default {
         /* =========================================================
            JSON RESPONSE
         ========================================================= */
-        function jsonResponse(
-            data,
-            status = 200,
-            extraHeaders = {}
-        ) {
+        function jsonResponse(data, status = 200) {
             return new Response(
-                JSON.stringify(
-                    data,
-                    null,
-                    2
-                ),
+                JSON.stringify(data),
                 {
                     status,
                     headers: {
-                        ...CORS_HEADERS,
-                        "Content-Type":
-                            "application/json; charset=UTF-8",
-                        ...extraHeaders
+                        "Content-Type": "application/json; charset=utf-8",
+                        "Access-Control-Allow-Origin": "*",
+                        "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+                        "Access-Control-Allow-Headers": "Content-Type"
                     }
                 }
             );
@@ -1357,5 +1371,119 @@ export default {
         }
 
 
+    }
+}
+async function handleAnalytics(request, env) {
+    if (request.method !== "POST") {
+        return jsonResponse(
+            {
+                success: false,
+                error: "Método não permitido."
+            },
+            405
+        );
+    }
+
+    try {
+        const body = await request.json();
+
+        const {
+            deviceId,
+            eventType,
+            sessionId = null,
+            screen = null,
+            contentId = null,
+            durationSeconds = 0,
+            metadata = null
+        } = body;
+
+        if (!deviceId || !eventType) {
+            return jsonResponse(
+                {
+                    success: false,
+                    error: "deviceId e eventType são obrigatórios."
+                },
+                400
+            );
+        }
+
+        const now = new Date().toISOString();
+
+        // Garante que o dispositivo exista
+        await env.DB
+            .prepare(`
+                INSERT INTO devices (
+                    device_id,
+                    name,
+                    type,
+                    location,
+                    created_at,
+                    last_seen_at,
+                    active
+                )
+                VALUES (?, ?, ?, ?, ?, ?, 1)
+                ON CONFLICT(device_id)
+                DO UPDATE SET
+                    last_seen_at = excluded.last_seen_at,
+                    active = 1
+            `)
+            .bind(
+                deviceId,
+                body.deviceName || null,
+                body.deviceType || "tablet",
+                body.location || null,
+                now,
+                now
+            )
+            .run();
+
+        // Registra o evento
+        const result = await env.DB
+            .prepare(`
+                INSERT INTO events (
+                    device_id,
+                    session_id,
+                    event_type,
+                    screen,
+                    content_id,
+                    duration_seconds,
+                    created_at,
+                    metadata
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `)
+            .bind(
+                deviceId,
+                sessionId,
+                eventType,
+                screen,
+                contentId,
+                Number(durationSeconds) || 0,
+                now,
+                metadata
+                    ? JSON.stringify(metadata)
+                    : null
+            )
+            .run();
+
+        return jsonResponse({
+            success: true,
+            eventId: result.meta.last_row_id,
+            receivedAt: now
+        });
+
+    } catch (error) {
+        console.error(
+            "Erro ao registrar analytics:",
+            error
+        );
+
+        return jsonResponse(
+            {
+                success: false,
+                error: "Não foi possível registrar o evento."
+            },
+            500
+        );
     }
 }

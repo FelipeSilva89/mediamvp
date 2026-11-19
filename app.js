@@ -3279,5 +3279,32 @@ console.log(
     console.log(
         "[MediaMVP Analytics] Analytics local inicializado."
     );
+    const DEVICE_ID_KEY = "mediaMvpDeviceId";
 
+    function getDeviceId() {
+        let deviceId = localStorage.getItem(
+            DEVICE_ID_KEY
+        );
+
+        if (!deviceId) {
+            const random = crypto.randomUUID();
+
+            deviceId =
+                `MEDIAMVP-${random}`;
+
+            localStorage.setItem(
+                DEVICE_ID_KEY,
+                deviceId
+            );
+        }
+
+        return deviceId;
+    }
+
+    const DEVICE_ID = getDeviceId();
+
+    console.log(
+        "MediaMVP Device ID:",
+        DEVICE_ID
+    );
 })();
