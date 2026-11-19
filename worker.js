@@ -1473,17 +1473,12 @@ async function handleAnalytics(request, env) {
         });
 
     } catch (error) {
-        console.error(
-            "Erro ao registrar analytics:",
-            error
-        );
+        console.error("Erro ao registrar analytics:", error);
 
-        return jsonResponse(
-            {
-                success: false,
-                error: "Não foi possível registrar o evento."
-            },
-            500
-        );
+        return jsonResponse({
+            error: "Erro interno ao registrar analytics",
+            details: error?.message || String(error),
+            stack: error?.stack || null
+        }, 500);
     }
 }
