@@ -74,8 +74,6 @@ let slideTimer = null;
 
 let wakeLock = null;
 
-let weatherAdObjectUrls = [];
-
 
 // ========================================
 // CONFIGURAÇÕES
@@ -98,9 +96,10 @@ const ADVERTISEMENTS = [
 const ADVERTISEMENT_DURATION = 10000;
 
 // Publicidades exclusivas do painel de clima (coluna esquerda).
+// Use peças verticais: recomendação 800 x 1200 px.
 const WEATHER_ADVERTISEMENTS = [
-    "assets/ads/clima-anuncio-1.png",
-    "assets/ads/clima-anuncio-2.png"
+    "assets/ads/clima-anuncio-1.jpg",
+    "assets/ads/clima-anuncio-2.jpg"
 ];
 
 const ANNOUNCE_HERE_IMAGE =
@@ -610,8 +609,6 @@ function getWeatherCondition(code) {
 
 function renderPlaylist() {
 
-    weatherAdObjectUrls.forEach((url) => URL.revokeObjectURL(url));
-    weatherAdObjectUrls = [];
     player.innerHTML = "";
 
 
@@ -1022,8 +1019,10 @@ function createWeatherSlide() {
         }
     }
 
-    const adMarkup = WEATHER_ADVERTISEMENTS.map((_, index) => `
-        <div class="weather-ad-slot" data-ad-slot="${index + 1}"></div>
+    const adMarkup = WEATHER_ADVERTISEMENTS.map((imagePath, index) => `
+        <div class="weather-ad-slot" data-ad-slot="${index + 1}">
+            <img src="${escapeHtml(imagePath)}" alt="Publicidade" loading="eager">
+        </div>
     `).join("");
 
     slide.innerHTML = `
@@ -1049,48 +1048,15 @@ function createWeatherSlide() {
         </section>
     `;
 
-    slide.querySelectorAll(".weather-ad-slot").forEach((slot, index) => {
-        void loadWeatherAdvertisement(
-            slot,
-            WEATHER_ADVERTISEMENTS[index],
-            index + 1
-        );
+    // Imagem ausente não exibe ícone quebrado nem conteúdo concorrente.
+    slide.querySelectorAll(".weather-ad-slot img").forEach((img) => {
+        img.addEventListener("error", () => {
+            img.parentElement.classList.add("is-empty");
+            img.remove();
+        }, { once: true });
     });
 
     return slide;
-}
-
-async function loadWeatherAdvertisement(slot, imagePath, number) {
-    try {
-        const response = await fetch(imagePath, { cache: "no-store" });
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-
-        const imageUrl = URL.createObjectURL(await response.blob());
-        if (!slot.isConnected) {
-            URL.revokeObjectURL(imageUrl);
-            return;
-        }
-
-        const image = document.createElement("img");
-        image.className = "weather-ad-image";
-        image.alt = `Publicidade ${number}`;
-        image.addEventListener("error", () => {
-            console.error(`Falha ao exibir publicidade ${number}:`, imagePath);
-            slot.classList.add("is-empty");
-            image.remove();
-            URL.revokeObjectURL(imageUrl);
-            weatherAdObjectUrls = weatherAdObjectUrls.filter((url) => url !== imageUrl);
-        }, { once: true });
-
-        weatherAdObjectUrls.push(imageUrl);
-        image.src = imageUrl;
-        slot.appendChild(image);
-    } catch (error) {
-        console.error(`Falha ao carregar publicidade ${number}:`, imagePath, error);
-        slot.classList.add("is-empty");
-    }
 }
 
 
@@ -1669,6 +1635,16 @@ async function startPlayer() {
 
     playerStarted = true;
 
+    // Fecha a métrica de tempo em que a tela inicial
+    // ficou aberta sem o player estar em execução.
+    if (
+        window.mediaMVP &&
+        window.mediaMVP.analytics &&
+        typeof window.mediaMVP.analytics.playerStarted === "function"
+    ) {
+        window.mediaMVP.analytics.playerStarted();
+    }
+
 
     console.log(
         "Iniciando Media Player..."
@@ -2021,10 +1997,53 @@ console.log(
     "use strict";
 
     const STORAGE_KEY = "mediamvp_analytics";
-    const HEARTBEAT_MS = 60 * 1000;
+    const HEARTBEAT_MS = 15 * 60 * 1000;
     const POLL_MS = 250;
     const MAX_SESSIONS = 100;
     const MAX_EVENTS = 2000;
+
+    // Analytics remoto — Cloudflare Worker + D1.
+    // O analytics local continua sendo a fonte principal;
+    // o envio remoto nunca deve bloquear o player.
+    const REMOTE_ANALYTICS_URL =
+        `${NEWS_API_URL}/analytics`;
+
+    const DEVICE_ID_STORAGE_KEY =
+        "mediamvp_device_id";
+
+    const REMOTE_DEVICE_NAME =
+        "Tablet Uber - MediaMVP";
+
+    const REMOTE_DEVICE_TYPE =
+        "tablet";
+
+    const REMOTE_LOCATION =
+        "Itapetininga - SP";
+
+    const REMOTE_QUEUE_STORAGE_KEY =
+        "mediamvp_remote_analytics_queue";
+
+    const REMOTE_QUEUE_MAX =
+        200;
+
+    const REMOTE_FLUSH_INTERVAL_MS =
+        60 * 1000;
+
+    const REMOTE_ALLOWED_EVENTS = new Set([
+        "player_start",
+        "idle_screen_duration",
+        "session_start",
+        "session_pause",
+        "session_resume",
+        "session_end",
+        "heartbeat",
+        "advertisement_impression",
+        "advertisement_display_duration"
+    ]);
+
+    let remoteFlushTimer = null;
+    let idleScreenStartedAt = now();
+    let idleScreenReported = false;
 
     let session = null;
     let activeSlideId = null;
@@ -2140,6 +2159,325 @@ console.log(
         }
     }
 
+    function getRemoteDeviceId() {
+        try {
+            let deviceId =
+                localStorage.getItem(
+                    DEVICE_ID_STORAGE_KEY
+                );
+
+            if (!deviceId) {
+                deviceId =
+                    id("device");
+
+                localStorage.setItem(
+                    DEVICE_ID_STORAGE_KEY,
+                    deviceId
+                );
+            }
+
+            return deviceId;
+        } catch (error) {
+            // Fallback apenas se o localStorage estiver indisponível.
+            return id("device");
+        }
+    }
+
+    function inferRemoteScreen(
+        payload = {}
+    ) {
+        if (payload.screen) {
+            return payload.screen;
+        }
+
+        const slideId =
+            String(
+                payload.slideId ||
+                payload.contentId ||
+                ""
+            );
+
+        if (
+            slideId === "weather"
+        ) {
+            return "weather";
+        }
+
+        if (
+            slideId.startsWith("news-")
+        ) {
+            return "news";
+        }
+
+        if (
+            slideId.startsWith("ad-") ||
+            payload.advertisementId
+        ) {
+            return "advertising";
+        }
+
+        if (
+            slideId === "announce-here"
+        ) {
+            return "house-advertising";
+        }
+
+        return "player";
+    }
+
+    function loadRemoteQueue() {
+        try {
+            const raw =
+                localStorage.getItem(
+                    REMOTE_QUEUE_STORAGE_KEY
+                );
+
+            if (!raw) {
+                return [];
+            }
+
+            const queue =
+                JSON.parse(raw);
+
+            return Array.isArray(queue)
+                ? queue
+                : [];
+        } catch (error) {
+            console.warn(
+                "[MediaMVP Analytics] " +
+                "Falha ao ler fila remota:",
+                error
+            );
+
+            return [];
+        }
+    }
+
+    function saveRemoteQueue(queue) {
+        try {
+            const trimmed =
+                queue.slice(
+                    -REMOTE_QUEUE_MAX
+                );
+
+            localStorage.setItem(
+                REMOTE_QUEUE_STORAGE_KEY,
+                JSON.stringify(trimmed)
+            );
+        } catch (error) {
+            console.warn(
+                "[MediaMVP Analytics] " +
+                "Falha ao salvar fila remota:",
+                error
+            );
+        }
+    }
+
+    function queueRemoteAnalytics(
+        type,
+        payload = {}
+    ) {
+        if (
+            !REMOTE_ALLOWED_EVENTS.has(
+                type
+            )
+        ) {
+            return;
+        }
+
+        const durationSeconds =
+            Math.max(
+                0,
+                Math.round(
+                    Number(
+                        payload.durationSeconds
+                    ) || 0
+                )
+            );
+
+        const body = {
+            deviceId:
+                getRemoteDeviceId(),
+
+            deviceName:
+                REMOTE_DEVICE_NAME,
+
+            deviceType:
+                REMOTE_DEVICE_TYPE,
+
+            location:
+                REMOTE_LOCATION,
+
+            eventType:
+                type,
+
+            screen:
+                inferRemoteScreen(
+                    payload
+                ),
+
+            contentId:
+                payload.contentId ||
+                payload.slideId ||
+                payload.advertisementId ||
+                null,
+
+            durationSeconds,
+
+            metadata:
+                payload.metadata ||
+                null
+        };
+
+        const queue =
+            loadRemoteQueue();
+
+        queue.push({
+            id:
+                id("remote"),
+            body,
+            queuedAt:
+                iso()
+        });
+
+        saveRemoteQueue(
+            queue
+        );
+
+        flushRemoteAnalytics();
+    }
+
+    async function flushRemoteAnalytics() {
+        const queue =
+            loadRemoteQueue();
+
+        if (
+            queue.length === 0
+        ) {
+            return;
+        }
+
+        // Envia somente um evento por vez.
+        // O objetivo aqui é evitar picos e manter
+        // o player independente do analytics.
+        const item =
+            queue[0];
+
+        try {
+            const response =
+                await fetch(
+                    REMOTE_ANALYTICS_URL,
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type":
+                                "application/json"
+                        },
+                        body:
+                            JSON.stringify(
+                                item.body
+                            ),
+                        keepalive:
+                            true
+                    }
+                );
+
+            if (
+                !response.ok
+            ) {
+                throw new Error(
+                    `HTTP ${response.status}`
+                );
+            }
+
+            queue.shift();
+
+            saveRemoteQueue(
+                queue
+            );
+
+            // Continua drenando a fila sem bloquear
+            // o restante da aplicação.
+            if (
+                queue.length > 0
+            ) {
+                setTimeout(
+                    flushRemoteAnalytics,
+                    250
+                );
+            }
+        } catch (error) {
+            console.warn(
+                "[MediaMVP Analytics] " +
+                "Falha no envio remoto; " +
+                "evento mantido na fila.",
+                error
+            );
+        }
+    }
+
+    function startRemoteFlushTimer() {
+        if (
+            remoteFlushTimer
+        ) {
+            return;
+        }
+
+        remoteFlushTimer =
+            setInterval(
+                flushRemoteAnalytics,
+                REMOTE_FLUSH_INTERVAL_MS
+            );
+
+        flushRemoteAnalytics();
+    }
+
+    function reportIdleScreenDuration(
+        reason = "unknown"
+    ) {
+        if (
+            idleScreenReported
+        ) {
+            return;
+        }
+
+        const seconds =
+            Math.max(
+                0,
+                Math.round(
+                    (
+                        now() -
+                        idleScreenStartedAt
+                    ) / 1000
+                )
+            );
+
+        if (
+            seconds > 0
+        ) {
+            queueRemoteAnalytics(
+                "idle_screen_duration",
+                {
+                    screen:
+                        "start-screen",
+
+                    contentId:
+                        "start-screen",
+
+                    durationSeconds:
+                        seconds,
+
+                    metadata: {
+                        reason
+                    }
+                }
+            );
+        }
+
+        idleScreenReported =
+            true;
+    }
+
     function addEvent(
         type,
         payload = {}
@@ -2156,6 +2494,13 @@ console.log(
         });
 
         save(data);
+
+        // Somente eventos relevantes para indicadores
+        // comerciais/operacionais seguem para o D1.
+        queueRemoteAnalytics(
+            type,
+            payload
+        );
     }
 
     function getDevice() {
@@ -2591,6 +2936,22 @@ console.log(
             slide
         ).forEach(
             advertisement => {
+                queueRemoteAnalytics(
+                    "advertisement_display_duration",
+                    {
+                        advertisementId:
+                            advertisement.id,
+
+                        advertisementName:
+                            advertisement.name,
+
+                        screen:
+                            "advertising",
+
+                        durationSeconds:
+                            seconds
+                    }
+                );
                 if (
                     !data.advertisements[
                         advertisement.id
@@ -3093,6 +3454,26 @@ console.log(
                         );
 
                     save(data);
+
+                    // Heartbeat remoto para confirmar
+                    // que o dispositivo continua ativo.
+                    const active =
+                        getActiveSlide();
+
+                    queueRemoteAnalytics(
+                        "heartbeat",
+                        {
+                            slideId:
+                                active
+                                    ? getSlideId(
+                                        active.slide,
+                                        active.index
+                                    )
+                                    : null,
+                            durationSeconds:
+                                HEARTBEAT_MS / 1000
+                        }
+                    );
                 },
                 HEARTBEAT_MS
             );
@@ -3165,6 +3546,14 @@ console.log(
     }
 
     function handlePageHide() {
+        if (
+            !playerStarted
+        ) {
+            reportIdleScreenDuration(
+                "page_unload"
+            );
+        }
+
         endSession(
             "page_unload"
         );
@@ -3249,7 +3638,29 @@ console.log(
                 () =>
                     endSession(
                         "manual"
-                    )
+                    ),
+
+            playerStarted:
+                () => {
+                    reportIdleScreenDuration(
+                        "player_started"
+                    );
+
+                    queueRemoteAnalytics(
+                        "player_start",
+                        {
+                            screen:
+                                "player",
+
+                            contentId:
+                                "player"
+                        }
+                    );
+                },
+
+            flushRemote:
+                () =>
+                    flushRemoteAnalytics()
         };
     }
 
@@ -3266,6 +3677,8 @@ console.log(
         handlePageHide
     );
 
+    startRemoteFlushTimer();
+
     /*
      * Começa a observar o player sem
      * interferir no código existente.
@@ -3279,32 +3692,5 @@ console.log(
     console.log(
         "[MediaMVP Analytics] Analytics local inicializado."
     );
-    const DEVICE_ID_KEY = "mediaMvpDeviceId";
 
-    function getDeviceId() {
-        let deviceId = localStorage.getItem(
-            DEVICE_ID_KEY
-        );
-
-        if (!deviceId) {
-            const random = crypto.randomUUID();
-
-            deviceId =
-                `MEDIAMVP-${random}`;
-
-            localStorage.setItem(
-                DEVICE_ID_KEY,
-                deviceId
-            );
-        }
-
-        return deviceId;
-    }
-
-    const DEVICE_ID = getDeviceId();
-
-    console.log(
-        "MediaMVP Device ID:",
-        DEVICE_ID
-    );
 })();

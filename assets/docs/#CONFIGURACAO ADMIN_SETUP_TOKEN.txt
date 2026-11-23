@@ -1,0 +1,70 @@
+#CONFIGURACAO ADMIN_SETUP_TOKEN
+
+$setupToken = "9(n3vq!AQCs!>5r.UTn||?](Gz?A=IKuV>GY%^zqnHeU$gF>5lYCw9GRO=t1dI|,"
+
+
+
+$headers = @{
+    "Content-Type" = "application/json"
+    "9(n3vq!AQCs!>5r.UTn||?](Gz?A=IKuV>GY%^zqnHeU$gF>5lYCw9GRO=t1dI|,
+" = $setupToken
+}
+
+Invoke-RestMethod 
+    -Method Post 
+    -Uri "https://billowing-thunder-176amediamvp.drigo-felipe.workers.dev/admin/auth/setup" 
+    -Headers $headers 
+    -Body $body
+
+    Invoke-RestMethod -Method Post -Uri "https://billowing-thunder-176amediamvp.drigo-felipe.workers.dev/admin/auth/setup" -Headers @{"Content-Type"="application/json";"X-Admin-Setup-Token"="9(n3vq!AQCs!>5r.UTn||?](Gz?A=IKuV>GY%^zqnHeU$gF>5lYCw9GRO=t1dI|,"} -Body '{"username":"admin","password":"Mvp@3390"}'
+
+    
+    9(n3vq!AQCs!>5r.UTn||?](Gz?A=IKuV>GY%^zqnHeU$gF>5lYCw9GRO=t1dI|,
+
+    64fbe76d88c549869e7f7164230679be7b26765f3a3a40dcaa6d0eb650fc278a
+
+
+   Invoke-RestMethod -Method Post -Uri "https://billowing-thunder-176amediamvp.drigo-felipe.workers.dev/admin/auth/setup" -Headers @{"Content-Type"="application/json";"X-Admin-Setup-Token"="9(n3vq!AQCs!>5r.UTn||?](Gz?A=IKuV>GY%^zqnHeU$gF>5lYCw9GRO=t1dI|,"} -Body '{"username":"admin","password":"Mvp@3390"}' 
+
+
+
+   curl.exe -X POST "https://billowing-thunder-176amediamvp.drigo-felipe.workers.dev/admin/auth/setup" -H "Content-Type: application/json" -H "X-Admin-Setup-Token: 64fbe76d88c549869e7f7164230679be7b26765f3a3a40dcaa6d0eb650fc278a" -d "{\"username\":\"ADMIN\",\"password\":\"Mvpmedia@3390\"}"
+
+
+   $body = @{
+    username = "ADMIN"
+    password = "Mvpmedia@3390"
+} | ConvertTo-Json
+
+Invoke-RestMethod 
+    -Method Post 
+    -Uri "https://billowing-thunder-176amediamvp.drigo-felipe.workers.dev/admin/auth/setup" 
+    -Headers @{"X-Admin-Setup-Token"="64fbe76d88c549869e7f7164230679be7b26765f3a3a40dcaa6d0eb650fc278a"} 
+    -ContentType "application/json" 
+    -Body $body
+
+    
+    #Criar usuario ADMIN
+    $body='{"username":"ADMIN","password":"Mediamvp@3390"}'; Invoke-RestMethod -Method Post -Uri "https://billowing-thunder-176amediamvp.drigo-felipe.workers.dev/admin/auth/setup" -Headers @{"X-Admin-Setup-Token"="64fbe76d88c549869e7f7164230679be7b26765f3a3a40dcaa6d0eb650fc278a"} -ContentType "application/json" -Body $body
+
+    #validar senha e usuario criados
+    $body='{"username":"ADMIN","password":"Mediamvp@3390"}'; Invoke-RestMethod -Method Post -Uri "https://billowing-thunder-176amediamvp.drigo-felipe.workers.dev/admin/auth/login" -ContentType "application/json" -Body $body
+
+
+    #Testar /admin/auth/me
+    $token = "64fbe76d88c549869e7f7164230679be7b26765f3a3a40dcaa6d0eb650fc278a"
+Invoke-RestMethod -Method Get -Uri "https://billowing-thunder-176amediamvp.drigo-felipe.workers.dev/admin/auth/me" -Headers @{Authorization="Bearer $token"}
+
+
+##
+
+$token = "7097fe5f1ed69fa872a04b40509ba94e58047756f4f108b5d9a853da443f0890"
+
+$headers = @{
+    Authorization = "Bearer $token"
+}
+
+Invoke-RestMethod `
+    -Uri "https://billowing-thunder-176amediamvp.drigo-felipe.workers.dev/admin/auth/me" `
+    -Method GET `
+    -Headers $headers

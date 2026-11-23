@@ -47,10 +47,38 @@ Os dois anúncios do slide de clima ocupam a coluna esquerda, empilhados vertica
 
 A tela inicial usa `assets/images/media-mvp-background.png` como imagem de fundo, com ajuste `cover`. Logo, data, relógio, localização e botão **Iniciar** aparecem sobre a imagem; o relógio e a data usam o horário local do dispositivo. O botão inicia a playlist e solicita tela cheia e Wake Lock quando disponíveis no navegador.
 
+## 2.1. Analytics local e remoto
+
+O projeto possui duas fontes de analytics que não devem ser confundidas:
+
+- **Analytics local:** eventos e sessões são gravados no `localStorage` da origem acessada pelo navegador, na chave `mediamvp_analytics`. O painel [admin.html](./admin.html) lê exclusivamente esses dados locais.
+- **Analytics remoto:** eventos selecionados são enviados ao Cloudflare Worker e armazenados no D1. Esses dados permitem relatórios agregados por dispositivo e por semana.
+
+O analytics remoto não bloqueia a reprodução. A integração gera uma fila em `mediamvp_remote_analytics_queue`, tenta enviar os eventos imediatamente e reenvia a fila a cada minuto. A fila também é limitada a 200 eventos no `localStorage`; falhas mantém os itens pendentes, enquanto respostas HTTP bem-sucedidas removem o primeiro item e continuam o processamento.
+
+Cada dispositivo recebe e persiste um identificador próprio em `mediamvp_device_id`. O nome remoto atual é `Tablet Uber - MediaMVP`, o tipo é `tablet` e a localização é `Itapetininga - SP`. Essas informações são enviadas nos campos `deviceName`, `deviceType` e `location`.
+
+Eventos permitidos no envio remoto:
+
+- `player_start`
+- `idle_screen_duration`
+- `session_start`
+- `session_pause`
+- `session_resume`
+- `session_end`
+- `heartbeat`
+- `advertisement_impression`
+- `advertisement_display_duration`
+
+O heartbeat remoto ocorre a cada 15 minutos durante uma sessão ativa. Ele não é enviado se o player estiver pausado ou se a página estiver oculta.
+
+O frontend mantém uma lista própria de eventos locais permitidos. Slides de notícias não são enviados ao D1 neste momento; o monitoramento remoto concentra a tela inicial, sessões e publicidades.
+
 ## 3. Arquivos do projeto
 
 - `index.html`: estrutura da tela inicial, contêiner do player, barra de progresso e registro do service worker.
-- `app.js`: configurações, estado do player, carregamento de notícias e clima, montagem da playlist, renderização dos slides, timers, fullscreen e Wake Lock.
+- `app.js`: configurações, estado do player, carregamento de notícias e clima, montagem da playlist, renderização dos slides, timers, fullscreen, Wake Lock e analytics local/remoto.
+- `admin.html` / `admin.css` / `admin.js`: painel administrativo baseado em dados locais do navegador.
 - `style.css`: estilos da tela inicial, notícias, clima, publicidade e responsividade.
 - `worker.js`: backend Cloudflare Worker, integração com RSS/Meteoblue e proxy de imagens.
 - `sw.js`: service worker da PWA e estratégia de cache Network First para arquivos da própria origem.
@@ -69,7 +97,15 @@ Rotas:
 - `GET /`: consulta o RSS e retorna `{ success, source, updatedAt, count, news }`.
 - `GET /weather`: consulta a Meteoblue e retorna `{ success, location, updatedAt, forecast }`.
 - `GET /image?url=...`: obtém imagens externas somente dos domínios permitidos.
+- `POST /analytics`: recebe eventos remotos, identifica/cria o dispositivo e grava o evento no D1.
+- `GET /analytics/report?year=AAAA&week=WW`: gera um relatório agregado semanal por dispositivo.
 - `OPTIONS`: responde às requisições de preflight CORS.
+
+O endpoint `/analytics` aceita um JSON com `deviceId` e `eventType`. Também podem ser enviados `deviceName`, `deviceType`, `location`, `sessionId`, `screen`, `contentId`, `durationSeconds` e `metadata`. Eventos com `player_start`, `session_start`, `session_end` e `heartbeat` atualizam o dispositivo como visto recentemente.
+
+O endpoint `/analytics/report` aceita somente semanas dentro dos últimos seis meses. Essa regra limita consultas pesadas sem apagar automaticamente o histórico bruto. Os parâmetros devem ser enviados como ano e semana ISO, por exemplo `?year=2026&week=47`.
+
+O relatório agrega sessões, impressões e duração de anúncios, tempo em tela ociosa, heartbeats e último heartbeat por dispositivo. Não retorna o histórico bruto dos eventos.
 
 Cada notícia possui `title`, `description`, `link`, `pubDate` e `image`. Cada item da previsão possui `date`, `max`, `min` e `conditionCode`.
 
@@ -116,7 +152,50 @@ A trava de 24 horas e a regra de quatro dias são controles do frontend. O Worke
 
 O deploy do Worker exige o secret `METEOBLUE_API_KEY`. A chave deve ser configurada como secret no Cloudflare e nunca deve ser colocada no frontend, no HTML, no repositório ou neste README.
 
-## 6. Execução local
+## 6. Configuração do D1 para analytics
+
+O Worker usa binding D1 chamado `DB`. Configure esse binding no Cloudflare Workers e crie as tabelas mínimas `devices` e `events` antes de enviar analytics.
+
+Exemplo de estrutura compatível com os inserts e consultas do `worker.js`:
+
+```sql
+CREATE TABLE IF NOT EXISTS devices (
+    device_id TEXT PRIMARY KEY,
+    name TEXT,
+    type TEXT,
+    location TEXT,
+    created_at TEXT,
+    last_seen_at TEXT,
+    active INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS events (
+    id INTEGER PRIMARY KEY,
+    device_id TEXT NOT NULL,
+    session_id TEXT,
+    event_type TEXT NOT NULL,
+    screen TEXT,
+    content_id TEXT,
+    duration_seconds INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL,
+    metadata TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_events_created_at
+    ON events(created_at);
+
+CREATE INDEX IF NOT EXISTS idx_events_device_created_at
+    ON events(device_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_events_type_created_at
+    ON events(event_type, created_at);
+```
+
+Não exponha o banco ou credenciais no frontend. O relatório remoto é agregado por dispositivo e não devolve os registros individuais de eventos.
+
+Dados remotos são independentes do `admin.html`: o painel atual continua lendo `mediamvp_analytics` do `localStorage`. Em outra origem, porta ou navegador, não serão exibidos os dados locais do tablet. Para compartilhar dados entre dispositivos, o painel precisa passar a consumir `/analytics/report`; a integração atual não faz isso.
+
+## 7. Execução local
 
 Não abra `index.html` diretamente por `file://`, pois o service worker exige contexto seguro. Sirva a pasta por HTTP, por exemplo:
 
@@ -130,7 +209,7 @@ Para testar notícias e clima, o navegador precisa ter acesso à URL pública do
 
 Abra o painel administrativo em `http://localhost:8000/admin.html`. O painel lê `mediamvp_analytics` do `localStorage` do navegador. Portanto, os dados aparecem somente se o player e o painel forem acessados no mesmo navegador, dispositivo e origem (protocolo, host e porta); analytics do domínio online não são compartilhados com `localhost`. O filtro **Ontem e hoje** considera os registros de eventos guardados pelo player.
 
-## 7. Service Worker, cache e publicação
+## 8. Service Worker, cache e publicação
 
 O `sw.js` utiliza estratégia **Network First** para arquivos da mesma origem:
 
@@ -165,7 +244,7 @@ Publique por HTTPS os arquivos estáticos do frontend e os assets referenciados.
 
 Publique `worker.js` no Cloudflare Workers e configure `METEOBLUE_API_KEY` como secret. Se a URL do Worker mudar, atualize `NEWS_API_URL` em `app.js`.
 
-## 8. Regras de manutenção
+## 9. Regras de manutenção
 
 - Alterações no contrato `forecast` devem ser refletidas no Worker (`handleWeather()`), no frontend (`loadWeather()` e `createWeatherSlide()`) e nesta documentação.
 - Alterações na ordem ou quantidade de slides devem ser feitas em `renderPlaylist()` e validadas junto com a duração por slide.
@@ -176,8 +255,12 @@ Publique `worker.js` no Cloudflare Workers e configure `METEOBLUE_API_KEY` como 
 - Não reduzir a proteção de frequência nem aumentar a frequência da Meteoblue sem avaliar o orçamento de créditos.
 - Não incluir a chave da Meteoblue em arquivos públicos.
 - Se alterar o formato do timestamp de `WEATHER_LAST_UPDATE_KEY`, considerar a compatibilidade com valores já gravados no `localStorage`.
+- Ao alterar eventos remotos, mantenha sincronizados `REMOTE_ALLOWED_EVENTS` em `app.js`, `handleAnalytics()` em `worker.js` e esta documentação.
+- Ao alterar o relatório agregado, atualize as consultas D1 e os campos esperados em futuros consumidores do endpoint `/analytics/report`.
+- Não remova os índices D1 sem avaliar o tamanho e a frequência das consultas agregadas.
+- Ao trocar o ID, nome, tipo ou localização fixa do dispositivo, considere o impacto em registros já existentes no D1.
 
-## 9. Diagnóstico
+## 10. Diagnóstico
 
 1. No Console do navegador, verifique os logs de carregamento de notícias, clima, criação da playlist e Wake Lock.
 2. Teste `GET /` e `GET /weather` diretamente e confirme `success: true`.
@@ -185,11 +268,19 @@ Publique `worker.js` no Cloudflare Workers e configure `METEOBLUE_API_KEY` como 
 4. Se o clima não atualizar, confira `METEOBLUE_API_KEY`, o horário local do tablet, as chaves `mediaMvpWeather` e `mediaMvpWeatherLastUpdate` e a regra `shouldUpdateWeather()`.
 5. Se o player mantiver arquivos antigos, inspecione o service worker ativo e o cache do navegador antes de alterar a estratégia.
 6. Se a previsão estiver antiga, diferencie uma chamada ao Worker de uma chamada efetiva à API Meteoblue; verifique também o cache HTTP de 70 horas.
+7. Para analytics remoto, abra o Console e procure mensagens `[MediaMVP Analytics]`. Falhas de rede mantêm o evento em `mediamvp_remote_analytics_queue`.
+8. Confirme que o binding D1 está chamado `DB` e que as tabelas `devices` e `events` existem.
+9. Teste `POST /analytics` com `deviceId` e `eventType` válidos e confirme `success: true`.
+10. Teste `GET /analytics/report?year=AAAA&week=WW` com uma semana recente. Semanas fora da janela de seis meses retornam HTTP 400.
+11. No painel `admin.html`, lembre que os dados são locais da origem atual. Limpar o `localStorage`, trocar navegador, mudar porta ou acessar outro domínio cria ou revela conjuntos diferentes.
 
-## 10. Pendências e evoluções possíveis
+## 11. Pendências e evoluções possíveis
 
 - Adicionar ícones reais ao `manifest.json`.
 - Avaliar se o `sw.js` deve armazenar somente respostas HTTP bem-sucedidas e aguardar a gravação no cache (`cache.put`) antes de concluir a resposta.
 - Considerar centralizar configurações editáveis (URL do Worker, durações e assets) em um arquivo de configuração.
 - Criar testes para parser RSS, normalização dos dados meteorológicos, montagem da playlist e regras de atualização.
 - Evoluir a gestão de anúncios para cadastro, períodos de veiculação e relatórios, quando houver necessidade de produto.
+- Evoluir o painel administrativo para consumir `/analytics/report` e exibir dados consolidados remotos por dispositivo.
+- Adicionar uma configuração administrativa do nome e da localização de cada tablet, evitando um identificador remoto fixo em `app.js`.
+- Avaliar retenção, limpeza e agregação histórica dos eventos brutos no D1.

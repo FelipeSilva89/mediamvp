@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#111827">
+  <title>MediaMVP — Acesso administrativo</title>
+  <link rel="stylesheet" href="admin-login.css">
+</head>
+<body>
+  <main class="login-page">
+    <section class="login-card" aria-labelledby="login-title">
+      <div class="brand">
+        <div class="brand-mark">M</div>
+        <div><strong>MediaMVP</strong><span>Admin</span></div>
+      </div>
+
+      <div class="login-header">
+        <p class="eyebrow">ACESSO RESTRITO</p>
+        <h1 id="login-title">Entrar no painel</h1>
+        <p>Use suas credenciais administrativas para acessar os dados do MediaMVP.</p>
+      </div>
+
+      <form id="login-form" novalidate>
+        <label for="username">Usuário</label>
+        <input id="username" name="username" type="text" autocomplete="username" required autofocus>
+
+        <label for="password">Senha</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+
+        <button id="login-button" type="submit">Entrar</button>
+        <p id="login-error" class="error" role="alert" hidden></p>
+      </form>
+
+      <p class="security-note">Sessão administrativa protegida e com expiração automática.</p>
+    </section>
+  </main>
+  <script src="admin-login.js"></script>
+</body>
+</html>

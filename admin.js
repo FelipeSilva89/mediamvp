@@ -1,313 +1,310 @@
 /**
- * MediaMVP - Admin Dashboard
- * Reads analytics saved by the player in this browser origin.
+ * MediaMVP - Admin Dashboard v0.2
+ * Fonte principal: Cloudflare Worker /analytics/report
+ * Autenticação: sessão emitida pelo Worker.
  */
-
 (function () {
-    "use strict";
+  "use strict";
 
-    const STORAGE_KEY = "mediamvp_analytics";
-    const REFRESH_INTERVAL = 5000;
-    const elements = {
-        status: document.getElementById("storage-status"),
-        period: document.getElementById("period-filter"),
-        refresh: document.getElementById("refresh-btn"),
-        active: document.getElementById("metric-active"),
-        activeDetail: document.getElementById("metric-active-detail"),
-        sessions: document.getElementById("metric-sessions"),
-        slides: document.getElementById("metric-slides"),
-        impressions: document.getElementById("metric-impressions"),
-        adsDetail: document.getElementById("metric-ads-detail"),
-        chart: document.getElementById("usage-chart"),
-        ranking: document.getElementById("ad-ranking"),
-        events: document.getElementById("recent-events"),
-        adsTable: document.getElementById("ads-table"),
-        sessionsTable: document.getElementById("sessions-table")
+  const API_URL = "https://billowing-thunder-176amediamvp.drigo-felipe.workers.dev";
+  const SESSION_KEY = "mediamvp_admin_session";
+  const REFRESH_INTERVAL = 60000;
+
+  const elements = {
+    status: document.getElementById("storage-status"),
+    period: document.getElementById("period-filter"),
+    refresh: document.getElementById("refresh-btn"),
+    logout: document.getElementById("logout-btn"),
+    active: document.getElementById("metric-active"),
+    activeDetail: document.getElementById("metric-active-detail"),
+    sessions: document.getElementById("metric-sessions"),
+    slides: document.getElementById("metric-slides"),
+    impressions: document.getElementById("metric-impressions"),
+    adsDetail: document.getElementById("metric-ads-detail"),
+    chart: document.getElementById("usage-chart"),
+    ranking: document.getElementById("ad-ranking"),
+    events: document.getElementById("recent-events"),
+    adsTable: document.getElementById("ads-table"),
+    sessionsTable: document.getElementById("sessions-table"),
+    devicesTable: document.getElementById("devices-table"),
+    footer: document.getElementById("footer-status")
+  };
+
+  let reportCache = null;
+
+  function token() {
+    return sessionStorage.getItem(SESSION_KEY);
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+    })[character]);
+  }
+
+  function formatNumber(value) {
+    return new Intl.NumberFormat("pt-BR").format(Number(value) || 0);
+  }
+
+  function formatDuration(seconds) {
+    const total = Math.max(0, Math.floor(Number(seconds) || 0));
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    if (hours) return `${hours}h ${minutes}min`;
+    if (minutes) return `${minutes}min`;
+    return `${total}s`;
+  }
+
+  function formatDate(value) {
+    if (!value) return "—";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "Data inválida" : date.toLocaleString("pt-BR");
+  }
+
+  function isoWeek(date = new Date()) {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const day = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - day);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  }
+
+  function isoYear(date = new Date()) {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const day = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - day);
+    return d.getUTCFullYear();
+  }
+
+  function populatePeriods() {
+    const currentYear = isoYear();
+    const currentWeek = isoWeek();
+    const options = [];
+    for (let offset = 0; offset < 12; offset++) {
+      const date = new Date();
+      date.setDate(date.getDate() - offset * 7);
+      const year = isoYear(date);
+      const week = isoWeek(date);
+      const value = `${year}-W${String(week).padStart(2, "0")}`;
+      options.push(`<option value="${value}">${year} — Semana ${week}${offset === 0 && year === currentYear && week === currentWeek ? " (atual)" : ""}</option>`);
+    }
+    elements.period.innerHTML = options.join("");
+  }
+
+  function selectedWeek() {
+    const [year, week] = elements.period.value.split("-W");
+    return { year: Number(year), week: Number(week) };
+  }
+
+  async function api(path, options = {}) {
+    const currentToken = token();
+    if (!currentToken) {
+      window.location.replace("admin-login.html");
+      throw new Error("Sessão não encontrada.");
+    }
+
+    const response = await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers: {
+        ...(options.body ? { "Content-Type": "application/json" } : {}),
+        Authorization: `Bearer ${currentToken}`,
+        ...(options.headers || {})
+      }
+    });
+
+    let data = null;
+    try { data = await response.json(); } catch (_) {}
+
+    if (response.status === 401 || response.status === 403) {
+      sessionStorage.removeItem(SESSION_KEY);
+      window.location.replace("admin-login.html");
+      throw new Error("Sessão expirada.");
+    }
+
+    if (!response.ok) {
+      throw new Error(data?.error || "Falha na comunicação com o servidor.");
+    }
+
+    return data;
+  }
+
+  function normalizeReport(data) {
+    return {
+      period: data.period || {},
+      summary: data.summary || {},
+      devices: Array.isArray(data.devices) ? data.devices : []
     };
+  }
 
-    function emptyAnalytics() {
-        return {
-            sessions: [],
-            events: [],
-            advertisements: {}
-        };
+  function renderChart(devices) {
+    // O endpoint atual é agregado por dispositivo, não por dia.
+    // O gráfico preserva o componente existente, agora mostrando uso por dispositivo.
+    const rows = devices.slice().sort((a, b) => (Number(b.sessions) || 0) - (Number(a.sessions) || 0)).slice(0, 7);
+    const values = rows.map((row) => Number(row.adDurationSeconds) || Number(row.activeSeconds) || 0);
+    const max = Math.max(...values, 1);
+
+    elements.chart.innerHTML = rows.length ? rows.map((row, index) => {
+      const value = values[index];
+      const height = value ? Math.max(3, value / max * 100) : 1;
+      const label = row.name || row.deviceId || `Dispositivo ${index + 1}`;
+      return `<div class="chart-day">
+        <div class="chart-bar" style="height:${height}%" data-value="${escapeHtml(formatDuration(value))}"></div>
+        <span class="chart-label">${escapeHtml(label.slice(0, 12))}</span>
+      </div>`;
+    }).join("") : '<p class="empty">Nenhum dispositivo com atividade no período.</p>';
+  }
+
+  function renderRanking(devices) {
+    const rows = devices.slice().sort((a, b) => (Number(b.adImpressions) || 0) - (Number(a.adImpressions) || 0));
+    const total = rows.reduce((sum, row) => sum + (Number(row.adImpressions) || 0), 0);
+    const max = Math.max(...rows.map((row) => Number(row.adImpressions) || 0), 1);
+
+    elements.ranking.innerHTML = total
+      ? rows.map((row) => {
+        const count = Number(row.adImpressions) || 0;
+        if (!count) return "";
+        return `<div class="rank-row"><div class="rank-info">
+          <div class="rank-name">${escapeHtml(row.name || row.deviceId)}</div>
+          <div class="rank-meta">${formatNumber(count)} impressões</div>
+          <div class="rank-track"><div class="rank-fill" style="width:${count / max * 100}%"></div></div>
+        </div><span class="rank-count">${formatNumber(count)}</span></div>`;
+      }).join("") || '<p class="empty">Nenhuma impressão de anúncio no período.</p>'
+      : '<p class="empty">Nenhuma impressão de anúncio no período.</p>';
+  }
+
+  function renderEvents(devices, period) {
+    const events = devices
+      .filter((row) => row.lastHeartbeat)
+      .sort((a, b) => new Date(b.lastHeartbeat) - new Date(a.lastHeartbeat))
+      .slice(0, 10);
+
+    elements.events.innerHTML = events.length
+      ? events.map((row) => `<div class="event">
+          <span class="event-time">${escapeHtml(formatDate(row.lastHeartbeat))}</span>
+          <span class="event-type">Heartbeat</span>
+          <span class="event-detail">${escapeHtml(row.name || row.deviceId)} — ${formatNumber(row.heartbeats)} contatos registrados na semana ${escapeHtml(String(period.week || ""))}</span>
+        </div>`).join("")
+      : '<p class="empty">Nenhuma atividade de dispositivo registrada no período.</p>';
+  }
+
+  function renderAdsTable(devices) {
+    const rows = devices
+      .map((row) => ({
+        device: row.name || row.deviceId,
+        impressions: Number(row.adImpressions) || 0,
+        duration: Number(row.adDurationSeconds) || 0
+      }))
+      .filter((row) => row.impressions > 0 || row.duration > 0)
+      .sort((a, b) => b.impressions - a.impressions);
+
+    elements.adsTable.innerHTML = rows.length
+      ? `<table class="data-table"><thead><tr><th>Dispositivo</th><th>Impressões</th><th>Tempo de publicidade</th></tr></thead><tbody>${rows.map((row) => `<tr><td><strong>${escapeHtml(row.device)}</strong></td><td>${formatNumber(row.impressions)}</td><td>${escapeHtml(formatDuration(row.duration))}</td></tr>`).join("")}</tbody></table>`
+      : '<p class="empty">Nenhuma exibição de anúncio no período.</p>';
+  }
+
+  function renderSessionsTable(devices) {
+    const rows = devices.slice().sort((a, b) => (Number(b.sessions) || 0) - (Number(a.sessions) || 0));
+    elements.sessionsTable.innerHTML = rows.length
+      ? `<table class="data-table"><thead><tr><th>Dispositivo</th><th>Sessões</th><th>Tempo ativo</th><th>Impressões</th><th>Último heartbeat</th></tr></thead><tbody>${rows.map((row) => `<tr>
+          <td><strong>${escapeHtml(row.name || row.deviceId)}</strong></td>
+          <td>${formatNumber(row.sessions)}</td>
+          <td>${escapeHtml(formatDuration(row.activeSeconds || row.adDurationSeconds || 0))}</td>
+          <td>${formatNumber(row.adImpressions)}</td>
+          <td>${escapeHtml(formatDate(row.lastHeartbeat))}</td>
+        </tr>`).join("")}</tbody></table>`
+      : '<p class="empty">Nenhum dispositivo com sessão no período.</p>';
+  }
+
+  function renderDevicesTable(devices) {
+    elements.devicesTable.innerHTML = devices.length
+      ? `<table class="data-table"><thead><tr><th>Dispositivo</th><th>Tipo</th><th>Localização</th><th>Último contato</th><th>Status</th></tr></thead><tbody>${devices.map((row) => {
+          const last = row.lastHeartbeat ? new Date(row.lastHeartbeat) : null;
+          const online = last && !Number.isNaN(last.getTime()) && (Date.now() - last.getTime()) <= 30 * 60 * 1000;
+          return `<tr><td><strong>${escapeHtml(row.name || row.deviceId)}</strong></td><td>${escapeHtml(row.type || "tablet")}</td><td>${escapeHtml(row.location || "—")}</td><td>${escapeHtml(formatDate(row.lastHeartbeat))}</td><td><span class="badge ${online ? "" : "offline"}">${online ? "Online" : "Offline"}</span></td></tr>`;
+        }).join("")}</tbody></table>`
+      : '<p class="empty">Nenhum dispositivo cadastrado.</p>';
+  }
+
+  function refreshCards(report) {
+    const summary = report.summary;
+    const sessions = Number(summary.sessions) || 0;
+    const impressions = Number(summary.adImpressions) || 0;
+    const activeSeconds = Number(summary.activeSeconds) || 0;
+    const slides = Number(summary.slides) || 0;
+    const ads = Number(summary.advertisers || summary.adCount) || new Set(report.devices.filter((d) => Number(d.adImpressions) > 0).map((d) => d.deviceId)).size;
+
+    elements.active.textContent = formatDuration(activeSeconds);
+    elements.activeDetail.textContent = `${formatNumber(sessions)} sessões no período`;
+    elements.sessions.textContent = formatNumber(sessions);
+    elements.slides.textContent = formatNumber(slides);
+    elements.impressions.textContent = formatNumber(impressions);
+    elements.adsDetail.textContent = `${formatNumber(ads)} dispositivos com anúncios`;
+  }
+
+  async function refreshDashboard() {
+    try {
+      const { year, week } = selectedWeek();
+      const report = normalizeReport(await api(`/analytics/report?year=${encodeURIComponent(year)}&week=${encodeURIComponent(week)}`));
+      reportCache = report;
+      refreshCards(report);
+      renderChart(report.devices);
+      renderRanking(report.devices);
+      renderEvents(report.devices, report.period);
+      renderAdsTable(report.devices);
+      renderSessionsTable(report.devices);
+      renderDevicesTable(report.devices);
+
+      const generatedAt = report.generatedAt || new Date().toISOString();
+      elements.status.textContent = `● Servidor conectado • ${formatDate(generatedAt)}`;
+      elements.footer.textContent = `v0.2 • relatório ${year}-W${String(week).padStart(2, "0")}`;
+    } catch (error) {
+      console.error("Erro ao atualizar o painel administrativo:", error);
+      elements.status.textContent = "● Falha na conexão com o servidor";
+      elements.events.innerHTML = `<p class="empty">${escapeHtml(error.message || "Não foi possível carregar o relatório.")}</p>`;
     }
+  }
 
-    function getAnalytics() {
-        const rawData = localStorage.getItem(STORAGE_KEY);
-        if (!rawData) {
-            return emptyAnalytics();
-        }
-
-        const parsed = JSON.parse(rawData);
-        return {
-            sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
-            events: Array.isArray(parsed.events) ? parsed.events : [],
-            advertisements:
-                parsed.advertisements && typeof parsed.advertisements === "object"
-                    ? parsed.advertisements
-                    : {}
-        };
-    }
-
-    function getRange(period) {
-        const end = new Date();
-        end.setHours(23, 59, 59, 999);
-
-        if (period === "all") {
-            return { start: null, end };
-        }
-
-        const days = period === "today" ? 1 : period === "2d" ? 2 : period === "30d" ? 30 : 7;
-        const start = new Date();
-        start.setHours(0, 0, 0, 0);
-        start.setDate(start.getDate() - days + 1);
-        return { start, end };
-    }
-
-    function isInRange(value, range) {
-        if (!value) {
-            return false;
-        }
-        const date = new Date(value);
-        return !Number.isNaN(date.getTime()) &&
-            (!range.start || date >= range.start) &&
-            date <= range.end;
-    }
-
-    function formatNumber(value) {
-        return new Intl.NumberFormat("pt-BR").format(value || 0);
-    }
-
-    function formatDuration(seconds) {
-        const total = Math.max(0, Math.floor(Number(seconds) || 0));
-        const hours = Math.floor(total / 3600);
-        const minutes = Math.floor((total % 3600) / 60);
-        if (hours) {
-            return `${hours}h ${minutes}min`;
-        }
-        if (minutes) {
-            return `${minutes}min`;
-        }
-        return `${total}s`;
-    }
-
-    function formatDate(value) {
-        if (!value) {
-            return "Em andamento";
-        }
-        const date = new Date(value);
-        return Number.isNaN(date.getTime())
-            ? "Data inválida"
-            : date.toLocaleString("pt-BR");
-    }
-
-    function escapeHtml(value) {
-        return String(value ?? "").replace(/[&<>"']/g, (character) => ({
-            "&": "&amp;",
-            "<": "&lt;",
-            ">": "&gt;",
-            '"': "&quot;",
-            "'": "&#039;"
-        })[character]);
-    }
-
-    function renderChart(sessions, period) {
-        const count = period === "today" ? 1 : period === "2d" ? 2 : 7;
-        const days = [];
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        for (let offset = count - 1; offset >= 0; offset--) {
-            const date = new Date(today);
-            date.setDate(today.getDate() - offset);
-            days.push(date);
-        }
-
-        const values = days.map((date) => {
-            const nextDay = new Date(date);
-            nextDay.setDate(nextDay.getDate() + 1);
-            return sessions.reduce((total, session) => {
-                if (!isInRange(session.start || session.startedAt, { start: date, end: nextDay })) {
-                    return total;
-                }
-                return total + (Number(session.duration) || 0);
-            }, 0);
+  async function logout() {
+    const currentToken = token();
+    try {
+      if (currentToken) {
+        await fetch(`${API_URL}/admin/auth/logout`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${currentToken}` }
         });
-        const max = Math.max(...values, 1);
+      }
+    } catch (_) {
+      // Mesmo com falha de rede, remove a sessão local.
+    } finally {
+      sessionStorage.removeItem(SESSION_KEY);
+      window.location.replace("admin-login.html");
+    }
+  }
 
-        elements.chart.innerHTML = days.map((date, index) => {
-            const label = date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-            const height = values[index] ? Math.max(3, values[index] / max * 100) : 1;
-            return `
-                <div class="chart-day">
-                    <div class="chart-bar" style="height:${height}%" data-value="${escapeHtml(formatDuration(values[index]))}"></div>
-                    <span class="chart-label">${label}</span>
-                </div>
-            `;
-        }).join("");
+  function setupNavigation() {
+    document.querySelectorAll(".nav-item").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll(".nav-item").forEach((item) => item.classList.toggle("active", item === button));
+        document.querySelectorAll(".section").forEach((section) => section.classList.toggle("active", section.id === button.dataset.section));
+        document.getElementById("page-title").textContent = button.textContent.trim();
+      });
+    });
+  }
+
+  async function init() {
+    if (!token()) {
+      window.location.replace("admin-login.html");
+      return;
     }
 
-    function renderRanking(events, advertisements) {
-        const totals = new Map();
-        events.filter((event) => event.type === "advertisement_impression").forEach((event) => {
-            const id = event.advertisementId || event.advertisementName || "anuncio";
-            const current = totals.get(id) || {
-                name: event.advertisementName || advertisements[id]?.name || id,
-                impressions: 0
-            };
-            current.impressions++;
-            totals.set(id, current);
-        });
-
-        const rows = [...totals.values()].sort((a, b) => b.impressions - a.impressions);
-        const max = Math.max(...rows.map((row) => row.impressions), 1);
-        elements.ranking.innerHTML = rows.length
-            ? rows.map((row) => `
-                <div class="rank-row">
-                    <div class="rank-info">
-                        <div class="rank-name">${escapeHtml(row.name)}</div>
-                        <div class="rank-meta">${formatNumber(row.impressions)} impressões</div>
-                        <div class="rank-track"><div class="rank-fill" style="width:${row.impressions / max * 100}%"></div></div>
-                    </div>
-                    <span class="rank-count">${formatNumber(row.impressions)}</span>
-                </div>
-            `).join("")
-            : '<p class="empty">Nenhuma impressão de anúncio neste período.</p>';
-    }
-
-    function renderEvents(events) {
-        const recent = events.slice().sort((a, b) =>
-            new Date(b.timestamp) - new Date(a.timestamp)
-        ).slice(0, 10);
-        const names = {
-            session_start: "Sessão iniciada",
-            session_pause: "Sessão pausada",
-            session_resume: "Sessão retomada",
-            session_end: "Sessão encerrada",
-            slide_view: "Slide exibido",
-            advertisement_impression: "Anúncio exibido"
-        };
-        elements.events.innerHTML = recent.length
-            ? recent.map((event) => {
-                const detail = event.advertisementName || event.slideName || event.reason || "";
-                return `<div class="event">
-                    <span class="event-time">${escapeHtml(new Date(event.timestamp).toLocaleTimeString("pt-BR"))}</span>
-                    <span class="event-type">${escapeHtml(names[event.type] || event.type)}</span>
-                    <span class="event-detail">${escapeHtml(detail)}</span>
-                </div>`;
-            }).join("")
-            : '<p class="empty">Nenhuma atividade registrada neste período.</p>';
-    }
-
-    function renderAdsTable(events, advertisements) {
-        const totals = new Map();
-        events.filter((event) => event.type === "advertisement_impression").forEach((event) => {
-            const id = event.advertisementId || event.advertisementName || "anuncio";
-            const row = totals.get(id) || {
-                name: event.advertisementName || advertisements[id]?.name || id,
-                impressions: 0,
-                lastDisplay: event.timestamp
-            };
-            row.impressions++;
-            if (new Date(event.timestamp) > new Date(row.lastDisplay)) {
-                row.lastDisplay = event.timestamp;
-            }
-            totals.set(id, row);
-        });
-
-        const rows = [...totals.entries()].sort((a, b) => b[1].impressions - a[1].impressions);
-        elements.adsTable.innerHTML = rows.length
-            ? `<table class="data-table"><thead><tr><th>Anúncio</th><th>Impressões</th><th>Última exibição</th></tr></thead><tbody>
-                ${rows.map(([, row]) => `<tr><td><strong>${escapeHtml(row.name)}</strong></td><td>${formatNumber(row.impressions)}</td><td>${escapeHtml(formatDate(row.lastDisplay))}</td></tr>`).join("")}
-            </tbody></table>`
-            : '<p class="empty">Nenhuma exibição de anúncio neste período.</p>';
-    }
-
-    function renderSessionsTable(sessions, events) {
-        const rows = sessions.slice().sort((a, b) =>
-            new Date(b.start || b.startedAt) - new Date(a.start || a.startedAt)
-        );
-        elements.sessionsTable.innerHTML = rows.length
-            ? `<table class="data-table"><thead><tr><th>Início</th><th>Fim</th><th>Duração</th><th>Slides</th><th>Dispositivo</th></tr></thead><tbody>
-                ${rows.map((session) => {
-                    const sessionEvents = events.filter((event) =>
-                        event.sessionId === session.id && event.type === "slide_view"
-                    ).length;
-                    return `<tr>
-                        <td>${escapeHtml(formatDate(session.start || session.startedAt))}</td>
-                        <td>${escapeHtml(formatDate(session.end || session.endedAt))}</td>
-                        <td>${escapeHtml(formatDuration(session.duration))}</td>
-                        <td>${formatNumber(session.slides || sessionEvents)}</td>
-                        <td>${escapeHtml(session.device || "Navegador")}</td>
-                    </tr>`;
-                }).join("")}
-            </tbody></table>`
-            : '<p class="empty">Nenhuma sessão registrada neste período.</p>';
-    }
-
-    function refreshDashboard() {
-        try {
-            const analytics = getAnalytics();
-            const period = elements.period.value;
-            const range = getRange(period);
-            const sessions = analytics.sessions.filter((session) =>
-                isInRange(session.start || session.startedAt, range)
-            );
-            const events = analytics.events.filter((event) => isInRange(event.timestamp, range));
-            const slideViews = events.filter((event) => event.type === "slide_view").length;
-            const impressions = events.filter((event) =>
-                event.type === "advertisement_impression"
-            ).length;
-            const activeTime = sessions.reduce((total, session) =>
-                total + (Number(session.duration) || 0), 0
-            );
-            const adCount = new Set(events
-                .filter((event) => event.type === "advertisement_impression")
-                .map((event) => event.advertisementId || event.advertisementName)
-            ).size;
-
-            elements.active.textContent = formatDuration(activeTime);
-            elements.activeDetail.textContent = `${formatNumber(sessions.length)} sessões no período`;
-            elements.sessions.textContent = formatNumber(sessions.length);
-            elements.slides.textContent = formatNumber(slideViews);
-            elements.impressions.textContent = formatNumber(impressions);
-            elements.adsDetail.textContent = `${formatNumber(adCount)} anúncios monitorados`;
-
-            renderChart(sessions, period);
-            renderRanking(events, analytics.advertisements);
-            renderEvents(events);
-            renderAdsTable(events, analytics.advertisements);
-            renderSessionsTable(sessions, analytics.events);
-
-            elements.status.textContent = localStorage.getItem(STORAGE_KEY)
-                ? `${formatNumber(analytics.events.length)} eventos neste navegador`
-                : "Sem dados neste navegador";
-        } catch (error) {
-            console.error("Erro ao atualizar o painel administrativo:", error);
-            elements.status.textContent = "Erro ao ler dados locais";
-            elements.events.innerHTML =
-                '<p class="empty">Não foi possível ler os dados. Consulte o console do navegador.</p>';
-        }
-    }
-
-    function setupNavigation() {
-        document.querySelectorAll(".nav-item").forEach((button) => {
-            button.addEventListener("click", () => {
-                document.querySelectorAll(".nav-item").forEach((item) =>
-                    item.classList.toggle("active", item === button)
-                );
-                document.querySelectorAll(".section").forEach((section) =>
-                    section.classList.toggle("active", section.id === button.dataset.section)
-                );
-                document.getElementById("page-title").textContent =
-                    button.textContent.trim();
-            });
-        });
-    }
-
+    populatePeriods();
     elements.period.addEventListener("change", refreshDashboard);
     elements.refresh.addEventListener("click", refreshDashboard);
+    elements.logout.addEventListener("click", logout);
     setupNavigation();
-    refreshDashboard();
+    await refreshDashboard();
     window.setInterval(refreshDashboard, REFRESH_INTERVAL);
+  }
+
+  init();
 })();

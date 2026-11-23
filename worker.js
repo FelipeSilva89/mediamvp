@@ -14,7 +14,7 @@ const WEATHER_LOCATION = {
 
 const CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     "Cache-Control": "public, max-age=10800"
 };
@@ -24,9 +24,259 @@ const ALLOWED_IMAGE_HOSTS = [
     "glbimg.com"
 ];
 
+const ADMIN_SESSION_HOURS = 8;
+const ADMIN_SETUP_TOKEN = "ADMIN_SETUP_TOKEN";
+
+function jsonResponse(data, status = 200, extraHeaders = {}) {
+    return new Response(
+        JSON.stringify(data),
+        {
+            status,
+            headers: {
+                "Content-Type": "application/json; charset=utf-8",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type",
+                ...extraHeaders
+            }
+        }
+    );
+}
+
+function adminJson(data, status = 200, extraHeaders = {}) {
+  return jsonResponse(data, status, {
+    "Cache-Control": "no-store",
+    ...extraHeaders
+  });
+}
+
+function randomToken(bytes = 32) {
+  const buffer = new Uint8Array(bytes);
+  crypto.getRandomValues(buffer);
+  return [...buffer].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function bytesToHex(bytes) {
+  return [...new Uint8Array(bytes)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function hexToBytes(hex) {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  return bytes;
+}
+
+async function sha256Hex(value) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return bytesToHex(digest);
+}
+
+async function hashAdminPassword(password, saltHex = null) {
+    const salt =
+        saltHex
+            ? hexToBytes(saltHex)
+            : crypto.getRandomValues(
+                new Uint8Array(16)
+            );
+
+    const passwordKey =
+        await crypto.subtle.importKey(
+            "raw",
+            new TextEncoder().encode(password),
+            {
+                name: "PBKDF2"
+            },
+            false,
+            [
+                "deriveBits"
+            ]
+        );
+
+    const derivedBits =
+        await crypto.subtle.deriveBits(
+            {
+                name: "PBKDF2",
+                salt,
+                iterations: 100000,
+                hash: "SHA-256"
+            },
+            passwordKey,
+            256
+        );
+
+    return {
+        saltHex: bytesToHex(salt),
+        hashHex: bytesToHex(
+            new Uint8Array(
+                derivedBits
+            )
+        )
+    };
+}
+
+async function verifyAdminPassword(password, saltHex, expectedHash) {
+  const result = await hashAdminPassword(password, saltHex);
+  return result.hashHex === expectedHash;
+}
+
+function adminSessionExpiry() {
+  return new Date(Date.now() + ADMIN_SESSION_HOURS * 60 * 60 * 1000).toISOString();
+}
+
+async function createAdminSession(env, userId) {
+  const rawToken = randomToken(32);
+  const tokenHash = await sha256Hex(rawToken);
+  const createdAt = new Date().toISOString();
+  const expiresAt = adminSessionExpiry();
+
+  await env.DB.prepare(`
+    INSERT INTO admin_sessions (token_hash, user_id, created_at, expires_at)
+    VALUES (?, ?, ?, ?)
+  `).bind(tokenHash, userId, createdAt, expiresAt).run();
+
+  return { token: rawToken, expiresAt };
+}
+
+function getBearerToken(request) {
+  const header = request.headers.get("Authorization") || "";
+  return header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+}
+
+async function requireAdmin(request, env) {
+  const rawToken = getBearerToken(request);
+  if (!rawToken) return null;
+
+  const tokenHash = await sha256Hex(rawToken);
+  const row = await env.DB.prepare(`
+    SELECT s.id, s.user_id, s.expires_at, u.username, u.active
+    FROM admin_sessions s
+    JOIN admin_users u ON u.id = s.user_id
+    WHERE s.token_hash = ?
+      AND s.expires_at > ?
+      AND u.active = 1
+    LIMIT 1
+  `).bind(tokenHash, new Date().toISOString()).first();
+
+  return row || null;
+}
+
+async function handleAdminAuth(request, env, url) {
+  if (url.pathname === "/admin/auth/login" && request.method === "POST") {
+    const body = await request.json().catch(() => ({}));
+    const username = String(body.username || "").trim();
+    const password = String(body.password || "");
+
+    if (!username || !password) return adminJson({ error: "Usuário e senha são obrigatórios." }, 400);
+
+    const user = await env.DB.prepare(`
+      SELECT id, username, password_salt, password_hash, active
+      FROM admin_users
+      WHERE username = ?
+      LIMIT 1
+    `).bind(username).first();
+
+    if (!user || !user.active || !(await verifyAdminPassword(password, user.password_salt, user.password_hash))) {
+      return adminJson({ error: "Usuário ou senha inválidos." }, 401);
+    }
+
+    const session = await createAdminSession(env, user.id);
+    await env.DB.prepare(`UPDATE admin_users SET last_login_at = ? WHERE id = ?`).bind(new Date().toISOString(), user.id).run();
+
+    return adminJson({ success: true, token: session.token, expiresAt: session.expiresAt, username: user.username });
+  }
+
+  if (url.pathname === "/admin/auth/me" && request.method === "GET") {
+    const admin = await requireAdmin(request, env);
+    if (!admin) return adminJson({ error: "Não autenticado." }, 401);
+    return adminJson({ authenticated: true, username: admin.username, expiresAt: admin.expires_at });
+  }
+
+  if (url.pathname === "/admin/auth/logout" && request.method === "POST") {
+    const rawToken = getBearerToken(request);
+    if (rawToken) {
+      const tokenHash = await sha256Hex(rawToken);
+      await env.DB.prepare(`DELETE FROM admin_sessions WHERE token_hash = ?`).bind(tokenHash).run();
+    }
+    return adminJson({ success: true });
+  }
+
+  /*
+   * Endpoint de criação inicial.
+   * Configure ADMIN_SETUP_TOKEN como secret no Worker.
+   * Depois de criar o usuário, remova/desative este bloco.
+   */
+    if (url.pathname === "/admin/auth/setup" && request.method === "POST") {
+        try {
+            const setupToken = request.headers.get("X-Admin-Setup-Token") || "";
+
+            if (!env[ADMIN_SETUP_TOKEN]) {
+                return adminJson({
+                    error: "Secret ADMIN_SETUP_TOKEN não está disponível."
+                }, 500);
+            }
+
+            if (setupToken !== env[ADMIN_SETUP_TOKEN]) {
+                return adminJson({
+                    error: "Token de setup inválido."
+                }, 403);
+            }
+
+            const count = await env.DB
+                .prepare(`SELECT COUNT(*) AS total FROM admin_users`)
+                .first();
+
+            if (Number(count?.total || 0) > 0) {
+                return adminJson({
+                    error: "Já existe um usuário administrador."
+                }, 409);
+            }
+
+            const body = await request.json();
+            const username = String(body.username || "").trim();
+            const password = String(body.password || "");
+
+            if (username.length < 3 || password.length < 10) {
+                return adminJson({
+                    error: "Usuário deve ter pelo menos 3 caracteres e senha pelo menos 10."
+                }, 400);
+            }
+
+            const { saltHex, hashHex } = await hashAdminPassword(password);
+
+            const createdAt = new Date().toISOString();
+
+            await env.DB.prepare(`
+      INSERT INTO admin_users
+        (username, password_salt, password_hash, active, created_at)
+      VALUES (?, ?, ?, 1, ?)
+    `)
+                .bind(username, saltHex, hashHex, createdAt)
+                .run();
+
+            return adminJson({
+                success: true,
+                message: "Administrador criado com sucesso.",
+                username
+            }, 201);
+
+        } catch (error) {
+            return adminJson({
+                success: false,
+                error: "Erro interno ao criar administrador.",
+                detail: String(error?.message || error)
+            }, 500);
+        }
+    }
+
+  return null;
+}
+
 export default {
     async fetch(request, env) {
         const url = new URL(request.url);
+
+        const adminAuthResponse = await handleAdminAuth(request, env, url);
+ if (adminAuthResponse) return adminAuthResponse;
 
         if (request.method === "OPTIONS") {
             return new Response(null, {
@@ -42,7 +292,7 @@ export default {
         // ========================================
         // ANALYTICS
         // ========================================
-        
+
         if (
             url.pathname === "/analytics" &&
             request.method === "POST"
@@ -51,9 +301,30 @@ export default {
         }
 
         // ========================================
-        // BLOQUEAR OUTROS MÉTODOS
+        // ANALYTICS REPORT
         // ========================================
 
+        if (
+            url.pathname === "/analytics/report" &&
+            request.method === "GET"
+        ) {
+            const admin = await requireAdmin(request, env);
+
+            if (!admin) {
+                return adminJson(
+                    {
+                        error: "Não autenticado."
+                    },
+                    401
+                );
+            }
+
+            return handleAnalyticsReport(request, env);
+        }
+
+        // ========================================
+        // BLOQUEAR OUTROS MÉTODOS
+        // ========================================
 
         if (request.method !== "GET") {
             return jsonResponse(
@@ -64,7 +335,6 @@ export default {
                 405
             );
         }
-
 
         /*
          * Proxy de imagem
@@ -78,7 +348,6 @@ export default {
         }
 
         return handleNews();
-
 
         /* =========================================================
            NOTÍCIAS
@@ -214,7 +483,6 @@ export default {
             }
         }
 
-
         /* =========================================================
            PARSER RSS
         ========================================================= */
@@ -289,7 +557,6 @@ export default {
             return items;
         }
 
-
         /* =========================================================
            IMAGEM DO RSS
         ========================================================= */
@@ -325,7 +592,6 @@ export default {
             return null;
         }
 
-
         function extractEnclosureImage(xml) {
 
             const match =
@@ -356,7 +622,6 @@ export default {
             return match[1].trim();
         }
 
-
         function extractImageTag(xml) {
 
             const match =
@@ -370,7 +635,6 @@ export default {
 
             return null;
         }
-
 
         /* =========================================================
            BUSCA IMAGEM NA PÁGINA DA NOTÍCIA
@@ -538,7 +802,6 @@ export default {
             }
         }
 
-
         /* =========================================================
            META TAG
         ========================================================= */
@@ -585,7 +848,6 @@ export default {
 
             return "";
         }
-
 
         /* =========================================================
            JSON-LD
@@ -637,7 +899,6 @@ export default {
 
             return null;
         }
-
 
         function findImageInJsonLd(data) {
 
@@ -722,7 +983,6 @@ export default {
             return null;
         }
 
-
         /* =========================================================
            IMG
         ========================================================= */
@@ -747,7 +1007,6 @@ export default {
 
             return null;
         }
-
 
         /* =========================================================
            SRCSET
@@ -792,7 +1051,6 @@ export default {
                 .trim();
         }
 
-
         /* =========================================================
            URL
         ========================================================= */
@@ -815,7 +1073,6 @@ export default {
             }
         }
 
-
         /* =========================================================
            PROXY DE IMAGEM
         ========================================================= */
@@ -826,7 +1083,6 @@ export default {
 
                 const imageUrl =
                     url.searchParams.get("url");
-
 
                 // ====================================
                 // VALIDAR URL
@@ -843,7 +1099,6 @@ export default {
                     );
 
                 }
-
 
                 let targetUrl;
 
@@ -864,7 +1119,6 @@ export default {
 
                 }
 
-
                 // ====================================
                 // VALIDAR HOST
                 // ====================================
@@ -877,7 +1131,6 @@ export default {
                                 "." + host
                             )
                     );
-
 
                 if (!allowed) {
 
@@ -896,12 +1149,10 @@ export default {
 
                 }
 
-
                 console.log(
                     "Buscando imagem:",
                     targetUrl.href
                 );
-
 
                 // ====================================
                 // BUSCAR IMAGEM
@@ -934,12 +1185,10 @@ export default {
                         }
                     );
 
-
                 console.log(
                     "Status imagem:",
                     response.status
                 );
-
 
                 // ====================================
                 // VALIDAR RESPOSTA
@@ -963,18 +1212,15 @@ export default {
 
                 }
 
-
                 const contentType =
                     response.headers.get(
                         "Content-Type"
                     ) || "";
 
-
                 console.log(
                     "Content-Type:",
                     contentType
                 );
-
 
                 // ====================================
                 // VALIDAR CONTENT-TYPE
@@ -1001,7 +1247,6 @@ export default {
 
                 }
 
-
                 // ====================================
                 // HEADERS DA RESPOSTA
                 // ====================================
@@ -1009,12 +1254,10 @@ export default {
                 const headers =
                     new Headers();
 
-
                 headers.set(
                     "Access-Control-Allow-Origin",
                     "*"
                 );
-
 
                 headers.set(
                     "Cache-Control",
@@ -1022,18 +1265,15 @@ export default {
                     //"no-cache"
                 );
 
-
                 headers.set(
                     "Content-Type",
                     contentType
                 );
 
-
                 headers.set(
                     "X-Content-Type-Options",
                     "nosniff"
                 );
-
 
                 // ====================================
                 // DEVOLVER IMAGEM
@@ -1047,14 +1287,12 @@ export default {
                     }
                 );
 
-
             } catch (error) {
 
                 console.error(
                     "Erro no proxy de imagem:",
                     error
                 );
-
 
                 return new Response(
                     "Erro interno ao carregar imagem.",
@@ -1067,8 +1305,6 @@ export default {
             }
 
         }
-
-
         /* =========================================================
            EXTRACT TAG
         ========================================================= */
@@ -1115,7 +1351,6 @@ export default {
             );
         }
 
-
         /* =========================================================
            LIMPEZA
         ========================================================= */
@@ -1147,7 +1382,6 @@ export default {
                     .trim()
             );
         }
-
 
         /* =========================================================
            HTML ENTITIES
@@ -1201,7 +1435,6 @@ export default {
                 );
         }
 
-
         /* =========================================================
            REGEX
         ========================================================= */
@@ -1216,24 +1449,6 @@ export default {
             );
         }
 
-
-        /* =========================================================
-           JSON RESPONSE
-        ========================================================= */
-        function jsonResponse(data, status = 200) {
-            return new Response(
-                JSON.stringify(data),
-                {
-                    status,
-                    headers: {
-                        "Content-Type": "application/json; charset=utf-8",
-                        "Access-Control-Allow-Origin": "*",
-                        "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-                        "Access-Control-Allow-Headers": "Content-Type"
-                    }
-                }
-            );
-        }
         async function handleWeather(env) {
             try {
                 const apiUrl =
@@ -1360,7 +1575,6 @@ export default {
             return null;
         }
 
-
         function toNumberOrNull(value) {
 
             const number = Number(value);
@@ -1370,9 +1584,9 @@ export default {
                 : null;
         }
 
-
     }
 }
+
 async function handleAnalytics(request, env) {
     if (request.method !== "POST") {
         return jsonResponse(
