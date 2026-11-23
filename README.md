@@ -213,7 +213,7 @@ Abra o painel administrativo em `http://localhost:8000/admin.html`. O painel lê
 
 O `sw.js` utiliza estratégia **Network First** para arquivos da mesma origem:
 
-1. Durante a instalação, abre o cache identificado por `media-player-2026-11-12-3` e pré-carrega `./`, `index.html`, `style.css`, `app.js`, `manifest.json` e `assets/images/media-mvp-background.png`.
+1. Durante a instalação, abre o cache identificado por `media-player-2026-11-23-1` e pré-carrega `./`, `index.html`, `style.css`, `app.js`, `manifest.json` e `assets/images/media-mvp-background.png`.
 2. Durante a ativação, remove os caches cujo nome seja diferente do cache atual e assume o controle das páginas abertas.
 3. Para requisições `GET` da própria origem, tenta buscar a versão da rede primeiro.
 4. Quando a busca de rede funciona, inicia a gravação de uma cópia no cache e devolve a resposta.
@@ -223,7 +223,7 @@ O `sw.js` utiliza estratégia **Network First** para arquivos da mesma origem:
 
 ### Atualização da versão em cache
 
-A versão atual está definida em `APP_VERSION` como `2026-11-12-3`. Ao publicar uma nova versão do frontend, altere esse valor para um identificador novo. Isso cria um novo nome de cache; na ativação, os caches antigos são removidos.
+A versão atual está definida em `APP_VERSION` como `2026-11-23-1`. Ao publicar uma nova versão do frontend, altere esse valor para um identificador novo. Isso cria um novo nome de cache; na ativação, os caches antigos são removidos.
 
 O `sw.js` chama `skipWaiting()` na instalação e `clients.claim()` na ativação. Ainda assim, uma página que já esteja aberta pode continuar executando o JavaScript carregado anteriormente até ser recarregada ou reaberta.
 
